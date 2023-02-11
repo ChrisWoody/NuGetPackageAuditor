@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33213.308
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NuGetPackageAuditor", "NuGetPackageAuditor\NuGetPackageAuditor.csproj", "{F3CBB6D8-F6B3-43B0-928E-A1DDA0CCE6C4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NuGetPackageAuditor.Tests", "NuGetPackageAuditor.Tests\NuGetPackageAuditor.Tests.csproj", "{983C1494-7086-46AD-A5F8-B8C0AF7B7031}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{3F6B39A9-6462-44D2-8D99-764299A83DEA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{E0BB22BA-ED32-46C5-A87A-8D00E274EC08}"
+	ProjectSection(SolutionItems) = preProject
+		..\.github\workflows\CI.yml = ..\.github\workflows\CI.yml
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F3CBB6D8-F6B3-43B0-928E-A1DDA0CCE6C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F3CBB6D8-F6B3-43B0-928E-A1DDA0CCE6C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F3CBB6D8-F6B3-43B0-928E-A1DDA0CCE6C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F3CBB6D8-F6B3-43B0-928E-A1DDA0CCE6C4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{983C1494-7086-46AD-A5F8-B8C0AF7B7031}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{983C1494-7086-46AD-A5F8-B8C0AF7B7031}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{983C1494-7086-46AD-A5F8-B8C0AF7B7031}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{983C1494-7086-46AD-A5F8-B8C0AF7B7031}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E0BB22BA-ED32-46C5-A87A-8D00E274EC08} = {3F6B39A9-6462-44D2-8D99-764299A83DEA}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7E7B114B-53D2-4A5C-A9F9-58FD8450220A}
+	EndGlobalSection
+EndGlobal
