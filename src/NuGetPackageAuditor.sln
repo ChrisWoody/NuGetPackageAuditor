@@ -5,7 +5,7 @@ VisualStudioVersion = 17.4.33213.308
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NuGetPackageAuditor", "NuGetPackageAuditor\NuGetPackageAuditor.csproj", "{F3CBB6D8-F6B3-43B0-928E-A1DDA0CCE6C4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NuGetPackageAuditor.Tests", "NuGetPackageAuditor.Tests\NuGetPackageAuditor.Tests.csproj", "{983C1494-7086-46AD-A5F8-B8C0AF7B7031}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NuGetPackageAuditor.Tests", "NuGetPackageAuditor.Tests\NuGetPackageAuditor.Tests.csproj", "{983C1494-7086-46AD-A5F8-B8C0AF7B7031}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{3F6B39A9-6462-44D2-8D99-764299A83DEA}"
 EndProject
@@ -13,6 +13,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{
 	ProjectSection(SolutionItems) = preProject
 		..\.github\workflows\CI.yml = ..\.github\workflows\CI.yml
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NuGetPackageAuditor.ConsoleApp", "NuGetPackageAuditor.ConsoleApp\NuGetPackageAuditor.ConsoleApp.csproj", "{21068E56-B46D-4FE1-9775-52E3191E5F4E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -28,6 +30,10 @@ Global
 		{983C1494-7086-46AD-A5F8-B8C0AF7B7031}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{983C1494-7086-46AD-A5F8-B8C0AF7B7031}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{983C1494-7086-46AD-A5F8-B8C0AF7B7031}.Release|Any CPU.Build.0 = Release|Any CPU
+		{21068E56-B46D-4FE1-9775-52E3191E5F4E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{21068E56-B46D-4FE1-9775-52E3191E5F4E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{21068E56-B46D-4FE1-9775-52E3191E5F4E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{21068E56-B46D-4FE1-9775-52E3191E5F4E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

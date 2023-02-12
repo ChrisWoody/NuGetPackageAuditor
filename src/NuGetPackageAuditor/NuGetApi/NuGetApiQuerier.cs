@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -23,9 +24,12 @@ namespace NuGetPackageAuditor.NuGetApi
 
             var response = await _httpClient.GetAsync($"{RegistrationBaseUrl}/{packageId.ToLowerInvariant()}/index.json");
             response.EnsureSuccessStatusCode();
-            var contentStream = await response.Content.ReadAsStreamAsync();
 
-            return await JsonSerializer.DeserializeAsync<CatalogRoot>(contentStream);
+            using (var contentStream = await response.Content.ReadAsStreamAsync())
+            using (var gzipStream = new GZipStream(contentStream, CompressionMode.Decompress))
+            {
+                return await JsonSerializer.DeserializeAsync<CatalogRoot>(gzipStream);
+            }
         }
     }
 }
