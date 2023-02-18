@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net.Http;
 using System.Threading.Tasks;
 using NuGetPackageAuditor.NuGetApi;
 
@@ -18,7 +19,7 @@ namespace NuGetPackageAuditor
             _nuGetApiQuerier = nuGetApiQuerier;
         }
 
-        public async Task<bool> IsPackageDeprecatedAsync(string packageId, string packageVersion)
+        public async Task<ResultWrapper<bool>> IsPackageDeprecatedAsync(string packageId, string packageVersion)
         {
             if (string.IsNullOrWhiteSpace(packageId))
                 throw new ArgumentNullException(nameof(packageId));
@@ -26,7 +27,20 @@ namespace NuGetPackageAuditor
             if (string.IsNullOrWhiteSpace(packageVersion))
                 throw new ArgumentNullException(nameof(packageVersion));
 
-            var catalogRoot = await _nuGetApiQuerier.GetCatalogRootAsync(packageId);
+            CatalogRoot catalogRoot;
+            try
+            {
+                catalogRoot = await _nuGetApiQuerier.GetCatalogRootAsync(packageId);
+            }
+            catch (HttpRequestException e)
+            {
+                if (e.Message == "Response status code does not indicate success: 404 (Not Found).")
+                    return ResultWrapper<bool>.Failure($"Could not find package with id '{packageId}' on the NuGet Catalog API.");
+
+                throw;
+            }
+
+            Package packageWithVersionFound = null;
 
             foreach (var catalogPage in catalogRoot?.CatalogPages ?? Array.Empty<CatalogPage>())
             {
@@ -34,15 +48,14 @@ namespace NuGetPackageAuditor
                 {
                     if (package?.PackageDetails?.Version?.Equals(packageVersion, StringComparison.InvariantCultureIgnoreCase) == true)
                     {
-                        if (package.PackageDetails.Deprecation != null)
-                        {
-                            return true;
-                        }
+                        packageWithVersionFound = package;
                     }
                 }
             }
 
-            return false;
+            return packageWithVersionFound == null
+                ? ResultWrapper<bool>.Failure($"Could not find package version '{packageVersion}' for '{packageId}'.")
+                : ResultWrapper<bool>.Success(packageWithVersionFound.PackageDetails.Deprecation != null);
         }
     }
 }
