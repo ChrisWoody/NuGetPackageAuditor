@@ -29,9 +29,9 @@ while (true)
         packageVersion = Console.ReadLine();
     } while (string.IsNullOrWhiteSpace(packageVersion));
 
-    var result = await packageAuditor.IsPackageDeprecatedAsync(packageId, packageVersion);
+    var result = await packageAuditor.GetPackageDeprecationDetailsAsync(packageId, packageVersion);
 
-    Console.WriteLine($"Is {packageId}:{packageVersion} deprecated? {result}");
+    Console.WriteLine($"Is {packageId}:{packageVersion} deprecated? Result.IsSuccess: {result.IsSuccess}, Result.Result.IsDeprecatedOnNuget: {result.Result?.IsDeprecatedOnNuget}, Result.Result.DeprecationMessage: {result.Result?.DeprecationMessage}");
     Console.WriteLine("");
 }
 

@@ -19,7 +19,7 @@ namespace NuGetPackageAuditor
             _nuGetApiQuerier = nuGetApiQuerier;
         }
 
-        public async Task<ResultWrapper<bool>> IsPackageDeprecatedAsync(string packageId, string packageVersion)
+        public async Task<ResultWrapper<PackageDeprecationDetails>> GetPackageDeprecationDetailsAsync(string packageId, string packageVersion)
         {
             if (string.IsNullOrWhiteSpace(packageId))
                 throw new ArgumentNullException(nameof(packageId));
@@ -27,35 +27,61 @@ namespace NuGetPackageAuditor
             if (string.IsNullOrWhiteSpace(packageVersion))
                 throw new ArgumentNullException(nameof(packageVersion));
 
-            CatalogRoot catalogRoot;
+            var catalogRoot = await GetCatalogRoot(packageId);
+            if (catalogRoot == null)
+                return ResultWrapper<PackageDeprecationDetails>.Failure($"Could not find package with id '{packageId}' on the NuGet Catalog API.");
+
+            if (TryGetPackageForVersion(catalogRoot, packageVersion, out var package))
+            {
+                if (package.PackageDetails.Deprecation != null)
+                {
+                    return ResultWrapper<PackageDeprecationDetails>.Success(new PackageDeprecationDetails
+                    {
+                        IsDeprecatedOnNuget = true,
+                        DeprecationMessage = package.PackageDetails.Deprecation.Message,
+                    });
+                }
+
+                return ResultWrapper<PackageDeprecationDetails>.Success(new PackageDeprecationDetails
+                {
+                    IsDeprecatedOnNuget = false,
+                });
+            }
+
+            return ResultWrapper<PackageDeprecationDetails>.Failure($"Could not find package version '{packageVersion}' for '{packageId}'.");
+        }
+
+        private async Task<CatalogRoot> GetCatalogRoot(string packageId)
+        {
             try
             {
-                catalogRoot = await _nuGetApiQuerier.GetCatalogRootAsync(packageId);
+                return await _nuGetApiQuerier.GetCatalogRootAsync(packageId);
             }
             catch (HttpRequestException e)
             {
                 if (e.Message == "Response status code does not indicate success: 404 (Not Found).")
-                    return ResultWrapper<bool>.Failure($"Could not find package with id '{packageId}' on the NuGet Catalog API.");
+                    return null;
 
                 throw;
             }
+        }
 
-            Package packageWithVersionFound = null;
-
+        private static bool TryGetPackageForVersion(CatalogRoot catalogRoot, string packageVersion, out Package package)
+        {
             foreach (var catalogPage in catalogRoot?.CatalogPages ?? Array.Empty<CatalogPage>())
             {
-                foreach (var package in catalogPage?.Packages ?? Array.Empty<Package>())
+                foreach (var catalogPackage in catalogPage?.Packages ?? Array.Empty<Package>())
                 {
-                    if (package?.PackageDetails?.Version?.Equals(packageVersion, StringComparison.InvariantCultureIgnoreCase) == true)
+                    if (catalogPackage?.PackageDetails?.Version?.Equals(packageVersion, StringComparison.InvariantCultureIgnoreCase) == true)
                     {
-                        packageWithVersionFound = package;
+                        package = catalogPackage;
+                        return true;
                     }
                 }
             }
 
-            return packageWithVersionFound == null
-                ? ResultWrapper<bool>.Failure($"Could not find package version '{packageVersion}' for '{packageId}'.")
-                : ResultWrapper<bool>.Success(packageWithVersionFound.PackageDetails.Deprecation != null);
+            package = null;
+            return false;
         }
     }
 }

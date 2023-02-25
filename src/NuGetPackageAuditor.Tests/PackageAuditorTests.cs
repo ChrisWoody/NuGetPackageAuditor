@@ -19,7 +19,7 @@ namespace NuGetPackageAuditor.Tests
         }
 
         [Fact]
-        public async Task IsPackageDeprecatedAsync_ReturnsTrue_WhenPackageIdAndVersionIsDeprecated()
+        public async Task GetPackageDeprecationDetailsAsync_ReturnsTrue_WhenPackageIdAndVersionIsDeprecated()
         {
             _catalogRootBuilder.WithPackage(new Package
             {
@@ -36,13 +36,15 @@ namespace NuGetPackageAuditor.Tests
             var catalogRoot = _catalogRootBuilder.Build();
             _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
 
-            var result = await _packageAuditor.IsPackageDeprecatedAsync(_packageId, _packageVersion);
+            var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
 
-            Assert.True(result.Result);
+            Assert.True(result.IsSuccess);
+            Assert.True(result.Result.IsDeprecatedOnNuget);
+            Assert.Equal("This package is deprecated", result.Result.DeprecationMessage);
         }
 
         [Fact]
-        public async Task IsPackageDeprecatedAsync_ReturnsFalse_WhenPackageIdAndVersionIsNotDeprecated()
+        public async Task GetPackageDeprecationDetailsAsync_ReturnsFalse_WhenPackageIdAndVersionIsNotDeprecated()
         {
             _catalogRootBuilder.WithPackage(new Package
             {
@@ -55,13 +57,14 @@ namespace NuGetPackageAuditor.Tests
             var catalogRoot = _catalogRootBuilder.Build();
             _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
 
-            var result = await _packageAuditor.IsPackageDeprecatedAsync(_packageId, _packageVersion);
+            var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
 
-            Assert.False(result.Result);
+            Assert.True(result.IsSuccess);
+            Assert.False(result.Result.IsDeprecatedOnNuget);
         }
 
         [Fact]
-        public async Task IsPackageDeprecatedAsync_ReturnsFalse_WhenPackageIdAndVersionIsNotDeprecatedButOtherVersionIsDeprecated()
+        public async Task GetPackageDeprecationDetailsAsync_ReturnsFalse_WhenPackageIdAndVersionIsNotDeprecatedButOtherVersionIsDeprecated()
         {
             _catalogRootBuilder.WithPackage(new Package
             {
@@ -86,13 +89,14 @@ namespace NuGetPackageAuditor.Tests
             var catalogRoot = _catalogRootBuilder.Build();
             _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
 
-            var result = await _packageAuditor.IsPackageDeprecatedAsync(_packageId, _packageVersion);
+            var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
 
-            Assert.False(result.Result);
+            Assert.True(result.IsSuccess);
+            Assert.False(result.Result.IsDeprecatedOnNuget);
         }
 
         [Fact]
-        public async Task IsPackageDeprecatedAsync_ReturnsTrue_WhenPackageIdAndVersionIsDeprecatedAndOtherVersionIsDeprecated()
+        public async Task GetPackageDeprecationDetailsAsync_ReturnsTrue_WhenPackageIdAndVersionIsDeprecatedAndOtherVersionIsDeprecated()
         {
             _catalogRootBuilder.WithPackage(new Package
             {
@@ -121,35 +125,37 @@ namespace NuGetPackageAuditor.Tests
             var catalogRoot = _catalogRootBuilder.Build();
             _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
 
-            var result = await _packageAuditor.IsPackageDeprecatedAsync(_packageId, _packageVersion);
+            var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
 
-            Assert.True(result.Result);
+            Assert.True(result.IsSuccess);
+            Assert.True(result.Result.IsDeprecatedOnNuget);
+            Assert.Equal("This package is deprecated", result.Result.DeprecationMessage);
         }
 
         [Theory]
         [InlineData(null)]
         [InlineData("")]
         [InlineData(" ")]
-        public async Task IsPackageDeprecatedAsync_ThrowsArgumentIsNullException_WhenPackageIdIsEmpty(string packageId)
+        public async Task GetPackageDeprecationDetailsAsync_ThrowsArgumentIsNullException_WhenPackageIdIsEmpty(string packageId)
         {
-            await Assert.ThrowsAsync<ArgumentNullException>(() => _packageAuditor.IsPackageDeprecatedAsync(packageId, _packageVersion));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => _packageAuditor.GetPackageDeprecationDetailsAsync(packageId, _packageVersion));
         }
 
         [Theory]
         [InlineData(null)]
         [InlineData("")]
         [InlineData(" ")]
-        public async Task IsPackageDeprecatedAsync_ThrowsArgumentIsNullException_WhenPackageVersionIsEmpty(string packageVersion)
+        public async Task GetPackageDeprecationDetailsAsync_ThrowsArgumentIsNullException_WhenPackageVersionIsEmpty(string packageVersion)
         {
-            await Assert.ThrowsAsync<ArgumentNullException>(() => _packageAuditor.IsPackageDeprecatedAsync(_packageId, packageVersion));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, packageVersion));
         }
 
         [Fact]
-        public async Task IsPackageDeprecatedAsync_ReturnFailureResult_WhenApiThrows404()
+        public async Task GetPackageDeprecationDetailsAsync_ReturnFailureResult_WhenApiThrows404()
         {
             _nuGetApiQuerier.When(x => x.GetCatalogRootAsync(_packageId)).Throw(new HttpRequestException("Response status code does not indicate success: 404 (Not Found).", null, HttpStatusCode.NotFound));
 
-            var result = await _packageAuditor.IsPackageDeprecatedAsync(_packageId, _packageVersion);
+            var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
 
             Assert.Equal(default, result.Result);
             Assert.False(result.IsSuccess);
@@ -157,7 +163,7 @@ namespace NuGetPackageAuditor.Tests
         }
 
         [Fact]
-        public async Task IsPackageDeprecatedAsync_ReturnsFailureResult_WhenVersionDoesntExist()
+        public async Task GetPackageDeprecationDetailsAsync_ReturnsFailureResult_WhenVersionDoesntExist()
         {
             _catalogRootBuilder.WithPackage(new Package
             {
@@ -170,7 +176,7 @@ namespace NuGetPackageAuditor.Tests
             var catalogRoot = _catalogRootBuilder.Build();
             _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
 
-            var result = await _packageAuditor.IsPackageDeprecatedAsync(_packageId, _packageVersion);
+            var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
 
             Assert.Equal(default, result.Result);
             Assert.False(result.IsSuccess);
