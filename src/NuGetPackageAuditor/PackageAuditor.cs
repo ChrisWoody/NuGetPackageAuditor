@@ -37,14 +37,14 @@ namespace NuGetPackageAuditor
                 {
                     return ResultWrapper<PackageDeprecationDetails>.Success(new PackageDeprecationDetails
                     {
-                        IsDeprecatedOnNuget = true,
-                        DeprecationMessage = package.PackageDetails.Deprecation.Message,
+                        DeprecatedReason = DeprecatedReason.PackageIsMarkedAsDeprecated,
+                        NuGetDeprecationMessage = package.PackageDetails.Deprecation.Message,
                     });
                 }
 
                 return ResultWrapper<PackageDeprecationDetails>.Success(new PackageDeprecationDetails
                 {
-                    IsDeprecatedOnNuget = false,
+                    DeprecatedReason = DeprecatedReason.PackageIsNotDeprecated,
                 });
             }
 

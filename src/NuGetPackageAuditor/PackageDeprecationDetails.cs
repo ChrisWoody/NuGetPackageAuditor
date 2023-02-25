@@ -2,7 +2,7 @@
 {
     public class PackageDeprecationDetails
     {
-        public bool IsDeprecatedOnNuget { get; set; }
-        public string DeprecationMessage { get; set; }
+        public DeprecatedReason DeprecatedReason { get; internal set; }
+        public string NuGetDeprecationMessage { get; internal set; }
     }
 }

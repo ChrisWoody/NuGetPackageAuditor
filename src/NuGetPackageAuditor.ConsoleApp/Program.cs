@@ -31,7 +31,7 @@ while (true)
 
     var result = await packageAuditor.GetPackageDeprecationDetailsAsync(packageId, packageVersion);
 
-    Console.WriteLine($"Is {packageId}:{packageVersion} deprecated? Result.IsSuccess: {result.IsSuccess}, Result.Result.IsDeprecatedOnNuget: {result.Result?.IsDeprecatedOnNuget}, Result.Result.DeprecationMessage: {result.Result?.DeprecationMessage}");
+    Console.WriteLine($"Is {packageId}:{packageVersion} deprecated? Result.IsSuccess: {result.IsSuccess}, Result.Result.DeprecatedReason: {result.Result?.DeprecatedReason}, Result.Result.NuGetDeprecationMessage: {result.Result?.NuGetDeprecationMessage}");
     Console.WriteLine("");
 }
 

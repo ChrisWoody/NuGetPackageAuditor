@@ -39,8 +39,8 @@ namespace NuGetPackageAuditor.Tests
             var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
 
             Assert.True(result.IsSuccess);
-            Assert.True(result.Result.IsDeprecatedOnNuget);
-            Assert.Equal("This package is deprecated", result.Result.DeprecationMessage);
+            Assert.Equal(DeprecatedReason.PackageIsMarkedAsDeprecated, result.Result.DeprecatedReason);
+            Assert.Equal("This package is deprecated", result.Result.NuGetDeprecationMessage);
         }
 
         [Fact]
@@ -60,7 +60,7 @@ namespace NuGetPackageAuditor.Tests
             var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
 
             Assert.True(result.IsSuccess);
-            Assert.False(result.Result.IsDeprecatedOnNuget);
+            Assert.Equal(DeprecatedReason.PackageIsNotDeprecated, result.Result.DeprecatedReason);
         }
 
         [Fact]
@@ -92,7 +92,7 @@ namespace NuGetPackageAuditor.Tests
             var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
 
             Assert.True(result.IsSuccess);
-            Assert.False(result.Result.IsDeprecatedOnNuget);
+            Assert.Equal(DeprecatedReason.PackageIsNotDeprecated, result.Result.DeprecatedReason);
         }
 
         [Fact]
@@ -128,8 +128,8 @@ namespace NuGetPackageAuditor.Tests
             var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
 
             Assert.True(result.IsSuccess);
-            Assert.True(result.Result.IsDeprecatedOnNuget);
-            Assert.Equal("This package is deprecated", result.Result.DeprecationMessage);
+            Assert.Equal(DeprecatedReason.PackageIsMarkedAsDeprecated, result.Result.DeprecatedReason);
+            Assert.Equal("This package is deprecated", result.Result.NuGetDeprecationMessage);
         }
 
         [Theory]
