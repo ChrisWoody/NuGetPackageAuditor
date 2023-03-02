@@ -11,7 +11,7 @@ namespace NuGetPackageAuditor
 
         public PackageAuditor()
         {
-            _nuGetApiQuerier = new NuGetApiQuerier();
+            _nuGetApiQuerier = NuGetApiQuerierFactory.Create();
         }
 
         public PackageAuditor(INuGetApiQuerier nuGetApiQuerier)
