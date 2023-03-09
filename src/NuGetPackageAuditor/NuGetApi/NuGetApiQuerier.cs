@@ -29,7 +29,7 @@ namespace NuGetPackageAuditor.NuGetApi
 
             var cachePayload = await _nuGetCache.GetValueOrDefaultAsync(packageId);
             if (cachePayload != default)
-                return JsonSerializer.Deserialize<CatalogRoot>(cachePayload);
+                return await DecompressAndDeserializeAsync(cachePayload);
 
             var response = await _httpClient.GetAsync($"{packageId.ToLowerInvariant()}/index.json");
             response.EnsureSuccessStatusCode();
@@ -37,6 +37,11 @@ namespace NuGetPackageAuditor.NuGetApi
             var contentBytes = await response.Content.ReadAsByteArrayAsync();
             await _nuGetCache.SaveAsync(packageId, contentBytes);
 
+            return await DecompressAndDeserializeAsync(contentBytes);
+        }
+
+        private static async Task<CatalogRoot> DecompressAndDeserializeAsync(byte[] contentBytes)
+        {
             using (var ms = new MemoryStream(contentBytes))
             using (var gzipStream = new GZipStream(ms, CompressionMode.Decompress))
             {
