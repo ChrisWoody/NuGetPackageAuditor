@@ -1,6 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using NuGet.Versioning;
 using NuGetPackageAuditor.NuGetApi;
 
 namespace NuGetPackageAuditor
@@ -19,36 +23,71 @@ namespace NuGetPackageAuditor
             _nuGetApiQuerier = nuGetApiQuerier;
         }
 
-        public async Task<ResultWrapper<PackageDeprecationDetails>> GetPackageDeprecationDetailsAsync(string packageId, string packageVersion)
+        /// <summary>
+        /// Attempts to retrieve details about the provided package id and version range. Check <see cref="PackageDetails.HasError"/> and <see cref="PackageDetails.Error"/> to identify any issues.
+        /// </summary>
+        /// <param name="packageId">The NuGet package's id</param>
+        /// <param name="packageVersionRange">The NuGet package's version or version range</param>
+        /// <returns><see cref="PackageDetails"/></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public async Task<PackageDetails> GetPackageDetailsAsync(string packageId, string packageVersionRange)
         {
             if (string.IsNullOrWhiteSpace(packageId))
                 throw new ArgumentNullException(nameof(packageId));
 
-            if (string.IsNullOrWhiteSpace(packageVersion))
-                throw new ArgumentNullException(nameof(packageVersion));
+            if (string.IsNullOrWhiteSpace(packageVersionRange))
+                throw new ArgumentNullException(nameof(packageVersionRange));
 
             var catalogRoot = await GetCatalogRoot(packageId);
             if (catalogRoot == null)
-                return ResultWrapper<PackageDeprecationDetails>.Failure($"Could not find package with id '{packageId}' on the NuGet Catalog API.");
+                return PackageDetails.BuildError($"Could not find package with id '{packageId}' on the NuGet Catalog API.");
 
-            if (TryGetPackageForVersion(catalogRoot, packageVersion, out var package))
+            if (catalogRoot.CatalogPages == null || !catalogRoot.CatalogPages.Any())
+                return PackageDetails.BuildError($"Package with id '{packageId}' found on the NuGet Catalog API but is missing 'CatalogPages'.");
+
+            if (catalogRoot.CatalogPages.Any(c => c.Packages == null || !c.Packages.Any()))
+                return PackageDetails.BuildError($"Package with id '{packageId}' found on the NuGet Catalog API but is missing 'Packages'.");
+
+            if (!VersionRange.TryParse(packageVersionRange, out var versionRange))
+                return PackageDetails.BuildError($"Package version range of '{packageVersionRange}' is invalid.");
+
+            var packageVersions = GetPackageVersions(catalogRoot);
+            var packageVersion = versionRange.FindBestMatch(packageVersions)?.OriginalVersion;
+
+            if (string.IsNullOrWhiteSpace(packageVersion))
+                return PackageDetails.BuildError($"The package version of {packageVersionRange} could not be found for '{packageId}'.");
+
+            var catalogEntry = GetCatalogEntry(catalogRoot, packageVersion);
+            return new PackageDetails
             {
-                if (package.PackageDetails.Deprecation != null)
-                {
-                    return ResultWrapper<PackageDeprecationDetails>.Success(new PackageDeprecationDetails
-                    {
-                        DeprecatedReason = DeprecatedReason.PackageIsMarkedAsDeprecated,
-                        NuGetDeprecationMessage = package.PackageDetails.Deprecation.Message,
-                    });
-                }
+                Id = packageId,
+                VersionRange = packageVersionRange,
+                Version = catalogEntry.Version,
+                IsListed = catalogEntry.IsListed,
+                DeprecatedReason = catalogEntry.Deprecation != null
+                    ? DeprecatedReason.PackageIsMarkedAsDeprecated
+                    : DeprecatedReason.PackageIsNotDeprecated,
+                NuGetDeprecationMessage = catalogEntry.Deprecation?.Message,
+                NuGetDeprecationReasons = catalogEntry.Deprecation?.Reasons,
+            };
+        }
+        
+        private static IEnumerable<NuGetVersion> GetPackageVersions(CatalogRoot catalogRoot)
+        {
+            foreach (var catalogPage in catalogRoot.CatalogPages)
+            foreach (var catalogPackage in catalogPage.Packages)
+                if (NuGetVersion.TryParse(catalogPackage?.CatalogEntry?.Version, out var version))
+                    yield return version;
+        }
 
-                return ResultWrapper<PackageDeprecationDetails>.Success(new PackageDeprecationDetails
-                {
-                    DeprecatedReason = DeprecatedReason.PackageIsNotDeprecated,
-                });
-            }
+        private static CatalogEntry GetCatalogEntry(CatalogRoot catalogRoot, string packageVersion)
+        {
+            foreach (var catalogPage in catalogRoot.CatalogPages)
+            foreach (var catalogPackage in catalogPage.Packages)
+                if (catalogPackage.CatalogEntry?.Version == packageVersion)
+                    return catalogPackage.CatalogEntry;
 
-            return ResultWrapper<PackageDeprecationDetails>.Failure($"Could not find package version '{packageVersion}' for '{packageId}'.");
+            throw new InvalidDataException($"Could not find CatalogEntry for package version '{packageVersion}', even though we resolved this version from the provided range");
         }
 
         private async Task<CatalogRoot> GetCatalogRoot(string packageId)
@@ -62,26 +101,10 @@ namespace NuGetPackageAuditor
                 if (e.Message == "Response status code does not indicate success: 404 (Not Found).")
                     return null;
 
+                // todo: handle api request limit exceeded and retry
+
                 throw;
             }
-        }
-
-        private static bool TryGetPackageForVersion(CatalogRoot catalogRoot, string packageVersion, out Package package)
-        {
-            foreach (var catalogPage in catalogRoot?.CatalogPages ?? Array.Empty<CatalogPage>())
-            {
-                foreach (var catalogPackage in catalogPage?.Packages ?? Array.Empty<Package>())
-                {
-                    if (catalogPackage?.PackageDetails?.Version?.Equals(packageVersion, StringComparison.InvariantCultureIgnoreCase) == true)
-                    {
-                        package = catalogPackage;
-                        return true;
-                    }
-                }
-            }
-
-            package = null;
-            return false;
         }
     }
 }

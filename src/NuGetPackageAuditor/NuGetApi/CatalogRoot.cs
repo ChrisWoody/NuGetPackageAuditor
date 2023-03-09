@@ -17,13 +17,16 @@ namespace NuGetPackageAuditor.NuGetApi
     public class Package
     {
         [JsonPropertyName("catalogEntry")]
-        public PackageDetails PackageDetails { get; set; }
+        public CatalogEntry CatalogEntry { get; set; }
     }
 
-    public class PackageDetails
+    public class CatalogEntry
     {
         [JsonPropertyName("version")]
         public string Version { get; set; }
+
+        [JsonPropertyName("listed")] 
+        public bool IsListed { get; set; }
 
         [JsonPropertyName("deprecation")]
         public Deprecation Deprecation { get; set; }

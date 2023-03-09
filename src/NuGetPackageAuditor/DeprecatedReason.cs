@@ -8,7 +8,7 @@
         PackageIsNotDeprecated = 0,
 
         /// <summary>
-        /// NuGet.org has reported the package as deprecated. Check '<see cref="PackageDeprecationDetails.NuGetDeprecationMessage"/>' for more details.
+        /// NuGet.org has reported the package as deprecated. Check '<see cref="PackageDetails.NuGetDeprecationMessage"/>' for more details.
         /// </summary>
         PackageIsMarkedAsDeprecated,
     }

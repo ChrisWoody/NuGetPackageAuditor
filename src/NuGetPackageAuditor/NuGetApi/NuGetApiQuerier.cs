@@ -9,7 +9,7 @@ namespace NuGetPackageAuditor.NuGetApi
 {
     internal class NuGetApiQuerier : INuGetApiQuerier
     {
-        private const string RegistrationBaseUrl = "https://api.nuget.org/v3/registration5-gz-semver2";
+        private const string RegistrationBaseUrl = "https://api.nuget.org/v3/registration5-gz-semver2/";
 
         private readonly HttpClient _httpClient;
         private readonly INuGetCache _nuGetCache;

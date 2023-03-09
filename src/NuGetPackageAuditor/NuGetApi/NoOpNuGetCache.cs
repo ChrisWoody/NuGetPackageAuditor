@@ -16,7 +16,7 @@ namespace NuGetPackageAuditor.NuGetApi
 
         public Task<byte[]> GetValueOrDefaultAsync(string key)
         {
-            return default;
+            return Task.FromResult((byte[]) default);
         }
     }
 }

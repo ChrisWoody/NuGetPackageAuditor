@@ -1,4 +1,5 @@
-﻿using NuGetPackageAuditor;
+﻿using System.Text.Json;
+using NuGetPackageAuditor;
 
 var packageAuditor = new PackageAuditor();
 
@@ -29,9 +30,15 @@ while (true)
         packageVersion = Console.ReadLine();
     } while (string.IsNullOrWhiteSpace(packageVersion));
 
-    var result = await packageAuditor.GetPackageDeprecationDetailsAsync(packageId, packageVersion);
+    var result = await packageAuditor.GetPackageDetailsAsync(packageId, packageVersion);
 
-    Console.WriteLine($"Is {packageId}:{packageVersion} deprecated? Result.IsSuccess: {result.IsSuccess}, Result.Result.DeprecatedReason: {result.Result?.DeprecatedReason}, Result.Result.NuGetDeprecationMessage: {result.Result?.NuGetDeprecationMessage}");
+    var serialized = JsonSerializer.Serialize(result, new JsonSerializerOptions
+    {
+        WriteIndented = true
+    });
+
+    Console.WriteLine($"Result for {packageId} and {packageVersion}");
+    Console.WriteLine(serialized);
     Console.WriteLine("");
 }
 
@@ -40,7 +47,7 @@ void PrintHelp()
     Console.WriteLine("");
     Console.WriteLine("Options");
     Console.WriteLine("- 0: Exit");
-    Console.WriteLine("- 1: Is Package Deprecated?");
+    Console.WriteLine("- 1: Audit package");
     Console.WriteLine("");
     Console.WriteLine("What option would you like to use?");
 }

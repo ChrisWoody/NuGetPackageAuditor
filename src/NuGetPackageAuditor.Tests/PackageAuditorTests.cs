@@ -5,7 +5,7 @@ namespace NuGetPackageAuditor.Tests
     public class PackageAuditorTests
     {
         private readonly string _packageId = Guid.NewGuid().ToString();
-        private readonly string _packageVersion = Guid.NewGuid().ToString();
+        private readonly string _packageVersionRange = "1.0.0";
 
         private readonly INuGetApiQuerier _nuGetApiQuerier;
         private readonly PackageAuditor _packageAuditor;
@@ -18,14 +18,146 @@ namespace NuGetPackageAuditor.Tests
             _catalogRootBuilder = new CatalogRootBuilder();
         }
 
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData(" ")]
+        public async Task GetPackageDetailsAsync_ThrowsArgumentIsNullException_WhenPackageIdIsEmpty(string packageId)
+        {
+            await Assert.ThrowsAsync<ArgumentNullException>(() => _packageAuditor.GetPackageDetailsAsync(packageId, _packageVersionRange));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData(" ")]
+        public async Task GetPackageDetailsAsync_ThrowsArgumentIsNullException_WhenPackageVersionRangeIsEmpty(string packageVersionRange)
+        {
+            await Assert.ThrowsAsync<ArgumentNullException>(() => _packageAuditor.GetPackageDetailsAsync(_packageId, packageVersionRange));
+        }
+
         [Fact]
-        public async Task GetPackageDeprecationDetailsAsync_ReturnsTrue_WhenPackageIdAndVersionIsDeprecated()
+        public async Task GetPackageDetailsAsync_PackageDetailsHasError_WhenApiThrows404()
+        {
+            _nuGetApiQuerier.When(x => x.GetCatalogRootAsync(_packageId)).Throw(
+                new HttpRequestException("Response status code does not indicate success: 404 (Not Found).", null, HttpStatusCode.NotFound));
+
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
+
+            Assert.NotNull(result);
+            Assert.True(result.HasError);
+            Assert.Equal($"Could not find package with id '{_packageId}' on the NuGet Catalog API.", result.Error);
+        }
+
+        [Fact]
+        public async Task GetPackageDetailsAsync_PackageDetailsHasError_WhenCatalogRootIsMissingCatalogPages()
+        {
+            var catalogRoot = _catalogRootBuilder.Build();
+            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
+
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
+
+            Assert.NotNull(result);
+            Assert.True(result.HasError);
+            Assert.Equal($"Package with id '{_packageId}' found on the NuGet Catalog API but is missing 'CatalogPages'.", result.Error);
+        }
+
+        [Fact]
+        public async Task GetPackageDetailsAsync_PackageDetailsHasError_WhenCatalogRootIsMissingPackages()
+        {
+            _catalogRootBuilder.WithCatalogPage(new CatalogPage());
+            var catalogRoot = _catalogRootBuilder.Build();
+            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
+
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
+
+            Assert.NotNull(result);
+            Assert.True(result.HasError);
+            Assert.Equal($"Package with id '{_packageId}' found on the NuGet Catalog API but is missing 'Packages'.", result.Error);
+        }
+
+        [Theory]
+        [InlineData("asd123")]
+        [InlineData("!@#$")]
+        [InlineData("[1.0.0")]
+        [InlineData("1.0.0]")]
+        [InlineData("(1.0.0")]
+        [InlineData("1.0.0)")]
+        [InlineData("[1.0.0.0.0.0]")]
+        [InlineData("(1.0.0)")]
+        [InlineData("(1.0.0,1.0.0.0.0)")]
+        [InlineData("(1.0.0,0)")]
+        [InlineData("(2.0.0,1.0.0)")]
+        public async Task GetPackageDetailsAsync_PackageDetailsHasError_WhenPackageVersionRangeIsInvalid(string packageVersionRange)
+        {
+            _catalogRootBuilder.WithCatalogPage(new CatalogPage{Packages = new Package[1]});
+            var catalogRoot = _catalogRootBuilder.Build();
+            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
+
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, packageVersionRange);
+
+            Assert.NotNull(result);
+            Assert.True(result.HasError);
+            Assert.Equal($"Package version range of '{packageVersionRange}' is invalid.", result.Error);
+        }
+
+        [Fact]
+        public async Task GetPackageDetailsAsync_PackageDetailsHasError_WhenBestPackageVersionCouldNotBeFound()
         {
             _catalogRootBuilder.WithPackage(new Package
             {
-                PackageDetails = new PackageDetails
+                CatalogEntry = new CatalogEntry
                 {
-                    Version = _packageVersion,
+                    Version = "0.0.9" // older than provided range
+                }
+            });
+            var catalogRoot = _catalogRootBuilder.Build();
+            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
+
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
+
+            Assert.NotNull(result);
+            Assert.True(result.HasError);
+            Assert.Equal($"The package version of {_packageVersionRange} could not be found for '{_packageId}'.", result.Error);
+        }
+
+        [Fact]
+        public async Task GetPackageDetailsAsync_ReturnsPackageDetails_WithNormalInformation()
+        {
+            _catalogRootBuilder.WithPackage(new Package
+            {
+                CatalogEntry = new CatalogEntry
+                {
+                    Version = _packageVersionRange,
+                    IsListed = true,
+                }
+            });
+            var catalogRoot = _catalogRootBuilder.Build();
+            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
+
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
+
+            Assert.NotNull(result);
+            Assert.False(result.HasError);
+            Assert.Null(result.Error);
+            Assert.Equal(_packageId, result.Id);
+            Assert.Equal(_packageVersionRange, result.VersionRange);
+            Assert.Equal(_packageVersionRange, result.Version);
+            Assert.True(result.IsListed);
+            Assert.Equal(DeprecatedReason.PackageIsNotDeprecated, result.DeprecatedReason);
+            Assert.Null(result.NuGetDeprecationMessage);
+            Assert.Null(result.NuGetDeprecationReasons);
+        }
+
+        [Fact]
+        public async Task GetPackageDetailsAsync_ReturnsPackageDetails_WithDeprecationInformation()
+        {
+            _catalogRootBuilder.WithPackage(new Package
+            {
+                CatalogEntry = new CatalogEntry
+                {
+                    Version = _packageVersionRange,
+                    IsListed = true,
                     Deprecation = new Deprecation
                     {
                         Message = "This package is deprecated",
@@ -36,151 +168,51 @@ namespace NuGetPackageAuditor.Tests
             var catalogRoot = _catalogRootBuilder.Build();
             _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
 
-            var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
 
-            Assert.True(result.IsSuccess);
-            Assert.Equal(DeprecatedReason.PackageIsMarkedAsDeprecated, result.Result.DeprecatedReason);
-            Assert.Equal("This package is deprecated", result.Result.NuGetDeprecationMessage);
-        }
-
-        [Fact]
-        public async Task GetPackageDeprecationDetailsAsync_ReturnsFalse_WhenPackageIdAndVersionIsNotDeprecated()
-        {
-            _catalogRootBuilder.WithPackage(new Package
-            {
-                PackageDetails = new PackageDetails
-                {
-                    Version = _packageVersion,
-                    Deprecation = null
-                }
-            });
-            var catalogRoot = _catalogRootBuilder.Build();
-            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
-
-            var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
-
-            Assert.True(result.IsSuccess);
-            Assert.Equal(DeprecatedReason.PackageIsNotDeprecated, result.Result.DeprecatedReason);
-        }
-
-        [Fact]
-        public async Task GetPackageDeprecationDetailsAsync_ReturnsFalse_WhenPackageIdAndVersionIsNotDeprecatedButOtherVersionIsDeprecated()
-        {
-            _catalogRootBuilder.WithPackage(new Package
-            {
-                PackageDetails = new PackageDetails
-                {
-                    Version = _packageVersion,
-                    Deprecation = null
-                }
-            });
-            _catalogRootBuilder.WithPackage(new Package
-            {
-                PackageDetails = new PackageDetails
-                {
-                    Version = "anotherversion",
-                    Deprecation = new Deprecation
-                    {
-                        Message = "This package is deprecated",
-                        Reasons = new[] { "Other" }
-                    }
-                }
-            });
-            var catalogRoot = _catalogRootBuilder.Build();
-            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
-
-            var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
-
-            Assert.True(result.IsSuccess);
-            Assert.Equal(DeprecatedReason.PackageIsNotDeprecated, result.Result.DeprecatedReason);
-        }
-
-        [Fact]
-        public async Task GetPackageDeprecationDetailsAsync_ReturnsTrue_WhenPackageIdAndVersionIsDeprecatedAndOtherVersionIsDeprecated()
-        {
-            _catalogRootBuilder.WithPackage(new Package
-            {
-                PackageDetails = new PackageDetails
-                {
-                    Version = _packageVersion,
-                    Deprecation = new Deprecation
-                    {
-                        Message = "This package is deprecated",
-                        Reasons = new[] { "Other" }
-                    }
-                }
-            });
-            _catalogRootBuilder.WithPackage(new Package
-            {
-                PackageDetails = new PackageDetails
-                {
-                    Version = "anotherversion",
-                    Deprecation = new Deprecation
-                    {
-                        Message = "This package is also deprecated",
-                        Reasons = new[] { "Other" }
-                    }
-                }
-            });
-            var catalogRoot = _catalogRootBuilder.Build();
-            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
-
-            var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
-
-            Assert.True(result.IsSuccess);
-            Assert.Equal(DeprecatedReason.PackageIsMarkedAsDeprecated, result.Result.DeprecatedReason);
-            Assert.Equal("This package is deprecated", result.Result.NuGetDeprecationMessage);
+            Assert.NotNull(result);
+            Assert.False(result.HasError);
+            Assert.Null(result.Error);
+            Assert.Equal(_packageId, result.Id);
+            Assert.Equal(_packageVersionRange, result.VersionRange);
+            Assert.Equal(_packageVersionRange, result.Version);
+            Assert.True(result.IsListed);
+            Assert.Equal(DeprecatedReason.PackageIsMarkedAsDeprecated, result.DeprecatedReason);
+            Assert.Equal("This package is deprecated", result.NuGetDeprecationMessage);
+            Assert.Single(result.NuGetDeprecationReasons);
+            Assert.Contains("Other", result.NuGetDeprecationReasons);
         }
 
         [Theory]
-        [InlineData(null)]
-        [InlineData("")]
-        [InlineData(" ")]
-        public async Task GetPackageDeprecationDetailsAsync_ThrowsArgumentIsNullException_WhenPackageIdIsEmpty(string packageId)
-        {
-            await Assert.ThrowsAsync<ArgumentNullException>(() => _packageAuditor.GetPackageDeprecationDetailsAsync(packageId, _packageVersion));
-        }
-
-        [Theory]
-        [InlineData(null)]
-        [InlineData("")]
-        [InlineData(" ")]
-        public async Task GetPackageDeprecationDetailsAsync_ThrowsArgumentIsNullException_WhenPackageVersionIsEmpty(string packageVersion)
-        {
-            await Assert.ThrowsAsync<ArgumentNullException>(() => _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, packageVersion));
-        }
-
-        [Fact]
-        public async Task GetPackageDeprecationDetailsAsync_ReturnFailureResult_WhenApiThrows404()
-        {
-            _nuGetApiQuerier.When(x => x.GetCatalogRootAsync(_packageId)).Throw(new HttpRequestException("Response status code does not indicate success: 404 (Not Found).", null, HttpStatusCode.NotFound));
-
-            var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
-
-            Assert.Equal(default, result.Result);
-            Assert.False(result.IsSuccess);
-            Assert.Equal($"Could not find package with id '{_packageId}' on the NuGet Catalog API.", result.Error);
-        }
-
-        [Fact]
-        public async Task GetPackageDeprecationDetailsAsync_ReturnsFailureResult_WhenVersionDoesntExist()
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GetPackageDetailsAsync_ReturnsPackageDetails_WithListedInformation(bool isListed)
         {
             _catalogRootBuilder.WithPackage(new Package
             {
-                PackageDetails = new PackageDetails
+                CatalogEntry = new CatalogEntry
                 {
-                    Version = "AnotherPackageVersion",
-                    Deprecation = null
+                    Version = _packageVersionRange,
+                    IsListed = isListed,
                 }
             });
             var catalogRoot = _catalogRootBuilder.Build();
             _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
 
-            var result = await _packageAuditor.GetPackageDeprecationDetailsAsync(_packageId, _packageVersion);
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
 
-            Assert.Equal(default, result.Result);
-            Assert.False(result.IsSuccess);
-            Assert.Equal($"Could not find package version '{_packageVersion}' for '{_packageId}'.", result.Error);
+            Assert.NotNull(result);
+            Assert.False(result.HasError);
+            Assert.Null(result.Error);
+            Assert.Equal(_packageId, result.Id);
+            Assert.Equal(_packageVersionRange, result.VersionRange);
+            Assert.Equal(_packageVersionRange, result.Version);
+            Assert.Equal(isListed, result.IsListed);
+            Assert.Equal(DeprecatedReason.PackageIsNotDeprecated, result.DeprecatedReason);
+            Assert.Null(result.NuGetDeprecationMessage);
+            Assert.Null(result.NuGetDeprecationReasons);
         }
+
+        // todo: add dependency related tests
     }
 }
