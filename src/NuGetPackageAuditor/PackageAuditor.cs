@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -11,16 +9,16 @@ namespace NuGetPackageAuditor
 {
     public class PackageAuditor
     {
-        private readonly INuGetApiQuerier _nuGetApiQuerier;
+        private readonly ICatalogProvider _catalogProvider;
 
         public PackageAuditor()
         {
-            _nuGetApiQuerier = NuGetApiQuerierFactory.Create();
+            _catalogProvider = new CatalogProvider(NuGetApiQuerierFactory.Create());
         }
 
         public PackageAuditor(INuGetApiQuerier nuGetApiQuerier)
         {
-            _nuGetApiQuerier = nuGetApiQuerier;
+            _catalogProvider = new CatalogProvider(nuGetApiQuerier);
         }
 
         /// <summary>
@@ -38,26 +36,19 @@ namespace NuGetPackageAuditor
             if (string.IsNullOrWhiteSpace(packageVersionRange))
                 throw new ArgumentNullException(nameof(packageVersionRange));
 
-            var catalogRoot = await GetCatalogRoot(packageId);
-            if (catalogRoot == null)
-                return PackageDetails.BuildError($"Could not find package with id '{packageId}' on the NuGet Catalog API.");
-
-            if (catalogRoot.CatalogPages == null || !catalogRoot.CatalogPages.Any())
-                return PackageDetails.BuildError($"Package with id '{packageId}' found on the NuGet Catalog API but is missing 'CatalogPages'.");
-
-            if (catalogRoot.CatalogPages.Any(c => c.Packages == null || !c.Packages.Any()))
-                return PackageDetails.BuildError($"Package with id '{packageId}' found on the NuGet Catalog API but is missing 'Packages'.");
-
             if (!VersionRange.TryParse(packageVersionRange, out var versionRange))
                 return PackageDetails.BuildError($"Package version range of '{packageVersionRange}' is invalid.");
 
-            var packageVersions = GetPackageVersions(catalogRoot);
-            var packageVersion = versionRange.FindBestMatch(packageVersions)?.OriginalVersion;
+            var packageVersions = await GetPackageVersions(packageId);
+            if (packageVersions == null || !packageVersions.Any())
+                return PackageDetails.BuildError($"Could not find package with id '{packageId}' on the NuGet Catalog API.");
 
+            var packageVersion = versionRange.FindBestMatch(packageVersions)?.OriginalVersion;
             if (string.IsNullOrWhiteSpace(packageVersion))
                 return PackageDetails.BuildError($"The package version of {packageVersionRange} could not be found for '{packageId}'.");
 
-            var catalogEntry = GetCatalogEntry(catalogRoot, packageVersion);
+            var catalogEntry = await GetCatalogEntry(packageId, packageVersion);
+
             return new PackageDetails
             {
                 Id = packageId,
@@ -72,39 +63,24 @@ namespace NuGetPackageAuditor
             };
         }
         
-        private static IEnumerable<NuGetVersion> GetPackageVersions(CatalogRoot catalogRoot)
-        {
-            foreach (var catalogPage in catalogRoot.CatalogPages)
-            foreach (var catalogPackage in catalogPage.Packages)
-                if (NuGetVersion.TryParse(catalogPackage?.CatalogEntry?.Version, out var version))
-                    yield return version;
-        }
-
-        private static CatalogEntry GetCatalogEntry(CatalogRoot catalogRoot, string packageVersion)
-        {
-            foreach (var catalogPage in catalogRoot.CatalogPages)
-            foreach (var catalogPackage in catalogPage.Packages)
-                if (catalogPackage.CatalogEntry?.Version == packageVersion)
-                    return catalogPackage.CatalogEntry;
-
-            throw new InvalidDataException($"Could not find CatalogEntry for package version '{packageVersion}', even though we resolved this version from the provided range");
-        }
-
-        private async Task<CatalogRoot> GetCatalogRoot(string packageId)
+        private async Task<NuGetVersion[]> GetPackageVersions(string packageId)
         {
             try
             {
-                return await _nuGetApiQuerier.GetCatalogRootAsync(packageId);
+                return (await _catalogProvider.GetAllVersions(packageId)).Select(NuGetVersion.Parse).ToArray();
             }
             catch (HttpRequestException e)
             {
                 if (e.Message == "Response status code does not indicate success: 404 (Not Found).")
                     return null;
 
-                // todo: handle api request limit exceeded and retry
-
                 throw;
             }
+        }
+
+        private async Task<CatalogEntry> GetCatalogEntry(string packageId, string packageVersion)
+        {
+            return await _catalogProvider.GetCatalogEntry(packageId, packageVersion);
         }
     }
 }

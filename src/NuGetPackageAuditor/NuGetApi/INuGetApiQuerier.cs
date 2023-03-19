@@ -3,22 +3,22 @@
 namespace NuGetPackageAuditor.NuGetApi
 {
     /// <summary>
-    /// Implementations of <see cref="INuGetApiQuerier"/> are expected to make requests to a NuGet feed, and (if supported) also only update its cache (if you don't need the package to be audited right now).
+    /// Implementations of <see cref="INuGetApiQuerier"/> are expected to make requests to a NuGet feed and return the uncompressed response as a byte[].
     /// </summary>
     public interface INuGetApiQuerier
     {
         /// <summary>
-        /// For a given NuGet package's id return its <see cref="CatalogRoot"/>, which can be audited or just queried.
+        /// For a given NuGet package's id return the uncompressed byte[] content that should represent <see cref="CatalogRoot"/>.
         /// </summary>
         /// <param name="packageId">The NuGet package's id</param>
-        /// <returns><see cref="CatalogRoot"/></returns>
-        Task<CatalogRoot> GetCatalogRootAsync(string packageId);
+        /// <returns>byte[]</returns>
+        Task<byte[]> GetRawCatalogRootAsync(string packageId);
 
         /// <summary>
-        /// For a given NuGet package's id, update its value in the cache. This allows you to pre-populate the cache to save making requests later, keeping it up to date at a daily cadence for example.
+        /// For a given NuGet catalog page's id return the uncompressed byte[] content that should represent <see cref="CatalogPage"/>.
         /// </summary>
-        /// <param name="packageId">The NuGet package's id</param>
-        /// <returns></returns>
-        Task UpdateCacheAsync(string packageId);
+        /// <param name="catalogPageId">The NuGet package's id</param>
+        /// <returns>byte[]</returns>
+        Task<byte[]> GetRawCatalogPageAsync(string catalogPageId);
     }
 }

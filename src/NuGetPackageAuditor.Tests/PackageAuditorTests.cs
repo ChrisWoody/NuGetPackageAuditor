@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 
 namespace NuGetPackageAuditor.Tests
 {
@@ -39,7 +40,7 @@ namespace NuGetPackageAuditor.Tests
         [Fact]
         public async Task GetPackageDetailsAsync_PackageDetailsHasError_WhenApiThrows404()
         {
-            _nuGetApiQuerier.When(x => x.GetCatalogRootAsync(_packageId)).Throw(
+            _nuGetApiQuerier.When(x => x.GetRawCatalogRootAsync(_packageId)).Throw(
                 new HttpRequestException("Response status code does not indicate success: 404 (Not Found).", null, HttpStatusCode.NotFound));
 
             var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
@@ -52,28 +53,28 @@ namespace NuGetPackageAuditor.Tests
         [Fact]
         public async Task GetPackageDetailsAsync_PackageDetailsHasError_WhenCatalogRootIsMissingCatalogPages()
         {
-            var catalogRoot = _catalogRootBuilder.Build();
-            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
 
             var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
 
             Assert.NotNull(result);
             Assert.True(result.HasError);
-            Assert.Equal($"Package with id '{_packageId}' found on the NuGet Catalog API but is missing 'CatalogPages'.", result.Error);
+            Assert.Equal($"Could not find package with id '{_packageId}' on the NuGet Catalog API.", result.Error);
         }
 
         [Fact]
         public async Task GetPackageDetailsAsync_PackageDetailsHasError_WhenCatalogRootIsMissingPackages()
         {
             _catalogRootBuilder.WithCatalogPage(new CatalogPage());
-            var catalogRoot = _catalogRootBuilder.Build();
-            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
 
             var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
 
             Assert.NotNull(result);
             Assert.True(result.HasError);
-            Assert.Equal($"Package with id '{_packageId}' found on the NuGet Catalog API but is missing 'Packages'.", result.Error);
+            Assert.Equal($"Could not find package with id '{_packageId}' on the NuGet Catalog API.", result.Error);
         }
 
         [Theory]
@@ -91,8 +92,8 @@ namespace NuGetPackageAuditor.Tests
         public async Task GetPackageDetailsAsync_PackageDetailsHasError_WhenPackageVersionRangeIsInvalid(string packageVersionRange)
         {
             _catalogRootBuilder.WithCatalogPage(new CatalogPage{Packages = new Package[1]});
-            var catalogRoot = _catalogRootBuilder.Build();
-            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
 
             var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, packageVersionRange);
 
@@ -111,8 +112,8 @@ namespace NuGetPackageAuditor.Tests
                     Version = "0.0.9" // older than provided range
                 }
             });
-            var catalogRoot = _catalogRootBuilder.Build();
-            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
 
             var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
 
@@ -132,8 +133,52 @@ namespace NuGetPackageAuditor.Tests
                     IsListed = true,
                 }
             });
-            var catalogRoot = _catalogRootBuilder.Build();
-            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
+
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
+
+            Assert.NotNull(result);
+            Assert.False(result.HasError);
+            Assert.Null(result.Error);
+            Assert.Equal(_packageId, result.Id);
+            Assert.Equal(_packageVersionRange, result.VersionRange);
+            Assert.Equal(_packageVersionRange, result.Version);
+            Assert.True(result.IsListed);
+            Assert.Equal(DeprecatedReason.PackageIsNotDeprecated, result.DeprecatedReason);
+            Assert.Null(result.NuGetDeprecationMessage);
+            Assert.Null(result.NuGetDeprecationReasons);
+        }
+
+        [Fact]
+        public async Task GetPackageDetailsAsync_ReturnsPackageDetails_WithNormalInformation_WhenCatalogRootIsSplit()
+        {
+            var catalogPageId = _packageId + "/page/version";
+            _catalogRootBuilder.WithCatalogPage(new CatalogPage
+            {
+                Id = catalogPageId,
+                Packages = null
+            });
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
+
+            var catalogPage = new CatalogPage
+            {
+                Id = catalogPageId,
+                Packages = new []
+                {
+                    new Package
+                    {
+                        CatalogEntry = new CatalogEntry
+                        {
+                            Version = _packageVersionRange,
+                            IsListed = true,
+                        }
+                    }
+                }
+            };
+            var catalogPageBytes = JsonSerializer.SerializeToUtf8Bytes(catalogPage);
+            _nuGetApiQuerier.GetRawCatalogPageAsync(catalogPageId).Returns(catalogPageBytes);
 
             var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
 
@@ -165,8 +210,8 @@ namespace NuGetPackageAuditor.Tests
                     }
                 }
             });
-            var catalogRoot = _catalogRootBuilder.Build();
-            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
 
             var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
 
@@ -196,8 +241,8 @@ namespace NuGetPackageAuditor.Tests
                     IsListed = isListed,
                 }
             });
-            var catalogRoot = _catalogRootBuilder.Build();
-            _nuGetApiQuerier.GetCatalogRootAsync(_packageId).Returns(catalogRoot);
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
 
             var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange);
 

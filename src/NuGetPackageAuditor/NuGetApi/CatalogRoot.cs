@@ -10,6 +10,8 @@ namespace NuGetPackageAuditor.NuGetApi
 
     public class CatalogPage
     {
+        [JsonPropertyName("@id")]
+        public string Id { get; set; }
         [JsonPropertyName("items")]
         public Package[] Packages { get; set; }
     }

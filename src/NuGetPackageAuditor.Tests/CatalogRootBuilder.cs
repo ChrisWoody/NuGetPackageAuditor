@@ -1,15 +1,17 @@
-﻿namespace NuGetPackageAuditor.Tests;
+﻿using System.Text.Json;
+
+namespace NuGetPackageAuditor.Tests;
 
 public class CatalogRootBuilder
 {
     private readonly CatalogRoot _catalogRoot = new();
 
-    public CatalogRootBuilder WithPackage(NuGetApi.Package package)
+    public CatalogRootBuilder WithPackage(Package package)
     {
         _catalogRoot.CatalogPages ??= Array.Empty<CatalogPage>();
         if (!_catalogRoot.CatalogPages.Any())
             _catalogRoot.CatalogPages = new[] {new CatalogPage()};
-        _catalogRoot.CatalogPages[0].Packages ??= Array.Empty<NuGetApi.Package>();
+        _catalogRoot.CatalogPages[0].Packages ??= Array.Empty<Package>();
 
         _catalogRoot.CatalogPages[0].Packages = _catalogRoot.CatalogPages[0].Packages.Concat(new[] {package}).ToArray();
 
@@ -25,4 +27,6 @@ public class CatalogRootBuilder
     }
 
     public CatalogRoot Build() => _catalogRoot;
+
+    public byte[] BuildAsApiBytes() => JsonSerializer.SerializeToUtf8Bytes(_catalogRoot);
 }
