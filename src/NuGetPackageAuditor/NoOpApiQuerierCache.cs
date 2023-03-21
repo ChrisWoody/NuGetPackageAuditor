@@ -1,8 +1,8 @@
 ﻿using System.Threading.Tasks;
 
-namespace NuGetPackageAuditor.NuGetApi
+namespace NuGetPackageAuditor
 {
-    internal class NoOpNuGetCache : INuGetCache
+    internal class NoOpApiQuerierCache : IApiQuerierCache
     {
         public Task SaveAsync(string key, byte[] value)
         {
@@ -16,7 +16,7 @@ namespace NuGetPackageAuditor.NuGetApi
 
         public Task<byte[]> GetValueOrDefaultAsync(string key)
         {
-            return Task.FromResult((byte[]) default);
+            return Task.FromResult((byte[])default);
         }
     }
 }

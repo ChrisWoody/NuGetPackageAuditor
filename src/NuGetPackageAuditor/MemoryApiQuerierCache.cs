@@ -1,9 +1,9 @@
 ﻿using System.Collections.Concurrent;
 using System.Threading.Tasks;
 
-namespace NuGetPackageAuditor.NuGetApi
+namespace NuGetPackageAuditor
 {
-    internal class MemoryNuGetCache : INuGetCache
+    internal class MemoryApiQuerierCache : IApiQuerierCache
     {
         private static readonly ConcurrentDictionary<string, byte[]> Cache = new ConcurrentDictionary<string, byte[]>();
 

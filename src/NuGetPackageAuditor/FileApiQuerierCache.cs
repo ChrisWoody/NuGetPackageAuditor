@@ -2,13 +2,13 @@
 using System.IO;
 using System.Threading.Tasks;
 
-namespace NuGetPackageAuditor.NuGetApi
+namespace NuGetPackageAuditor
 {
-    internal class FileNuGetCache : INuGetCache
+    internal class FileApiQuerierCache : IApiQuerierCache
     {
         private readonly string _folderPath;
 
-        public FileNuGetCache(string folderPath)
+        public FileApiQuerierCache(string folderPath)
         {
             if (string.IsNullOrWhiteSpace(folderPath))
                 throw new ArgumentNullException(nameof(folderPath));

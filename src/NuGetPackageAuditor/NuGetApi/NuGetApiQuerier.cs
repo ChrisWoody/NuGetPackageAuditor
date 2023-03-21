@@ -12,14 +12,14 @@ namespace NuGetPackageAuditor.NuGetApi
         private const string RegistrationBaseUrl = "https://api.nuget.org/v3/registration5-gz-semver2/";
 
         private readonly HttpClient _httpClient;
-        private readonly INuGetCache _nuGetCache;
+        private readonly IApiQuerierCache _apiQuerierCache;
 
-        public NuGetApiQuerier(INuGetCache nuGetCache)
+        public NuGetApiQuerier(IApiQuerierCache apiQuerierCache)
         {
             _httpClient = new HttpClient();
             _httpClient.BaseAddress = new Uri(RegistrationBaseUrl);
             _httpClient.Timeout = TimeSpan.FromSeconds(30);
-            _nuGetCache = nuGetCache;
+            _apiQuerierCache = apiQuerierCache;
         }
 
         public async Task<byte[]> GetRawCatalogRootAsync(string packageId)
@@ -27,7 +27,7 @@ namespace NuGetPackageAuditor.NuGetApi
             if (string.IsNullOrWhiteSpace(packageId))
                 throw new ArgumentNullException(nameof(packageId));
 
-            var cachePayload = await _nuGetCache.GetValueOrDefaultAsync(packageId + ".json");
+            var cachePayload = await _apiQuerierCache.GetValueOrDefaultAsync(packageId + ".json");
             if (cachePayload != default)
                 return cachePayload;
 
@@ -35,7 +35,7 @@ namespace NuGetPackageAuditor.NuGetApi
             response.EnsureSuccessStatusCode();
 
             var decompressedBytes = await DecompressContent(response.Content);
-            await _nuGetCache.SaveAsync(packageId + ".json", decompressedBytes);
+            await _apiQuerierCache.SaveAsync(packageId + ".json", decompressedBytes);
             return decompressedBytes;
         }
 
@@ -51,7 +51,7 @@ namespace NuGetPackageAuditor.NuGetApi
                 throw new ArgumentException("Parameter not in the expected format. Requires 'page' in path.", nameof(catalogPageId));
 
             var cacheName = $"{split[0]}_{split[1].Replace('/', '_')}.json";
-            var cachePayload = await _nuGetCache.GetValueOrDefaultAsync(cacheName);
+            var cachePayload = await _apiQuerierCache.GetValueOrDefaultAsync(cacheName);
             if (cachePayload != default)
                 return cachePayload;
 
@@ -59,7 +59,7 @@ namespace NuGetPackageAuditor.NuGetApi
             response.EnsureSuccessStatusCode();
 
             var decompressedBytes = await DecompressContent(response.Content);
-            await _nuGetCache.SaveAsync(cacheName, decompressedBytes);
+            await _apiQuerierCache.SaveAsync(cacheName, decompressedBytes);
             return decompressedBytes;
         }
 

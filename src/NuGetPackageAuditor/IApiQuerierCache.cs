@@ -1,11 +1,11 @@
 ﻿using System.Threading.Tasks;
 
-namespace NuGetPackageAuditor.NuGetApi
+namespace NuGetPackageAuditor
 {
     /// <summary>
     /// To avoid the latency and rate limiting of hitting NuGet.org, responses can be cached using either the inbuilt caches or your own implementation.
     /// </summary>
-    public interface INuGetCache
+    public interface IApiQuerierCache
     {
         /// <summary>
         /// Save the response from NuGet.org for a given key (NuGet package's id) to the cache.
