@@ -30,7 +30,8 @@ while (true)
         packageVersion = Console.ReadLine();
     } while (string.IsNullOrWhiteSpace(packageVersion));
 
-    var result = await packageAuditor.GetPackageDetailsAsync(packageId, packageVersion);
+    var settings = new GetPackageDetailsSettings {IncludeSourceControlInAuditIfExists = true};
+    var result = await packageAuditor.GetPackageDetailsAsync(packageId, packageVersion, settings);
 
     var serialized = JsonSerializer.Serialize(result, new JsonSerializerOptions
     {

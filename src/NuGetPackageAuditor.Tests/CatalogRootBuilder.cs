@@ -30,3 +30,24 @@ public class CatalogRootBuilder
 
     public byte[] BuildAsApiBytes() => JsonSerializer.SerializeToUtf8Bytes(_catalogRoot);
 }
+
+public class GitHubRepositoryMetadataBuilder
+{
+    private GitHubRepositoryMetadata _repositoryMetadata = new();
+
+    public GitHubRepositoryMetadataBuilder WithArchived(bool archived)
+    {
+        _repositoryMetadata.Archived = archived;
+
+        return this;
+    }
+
+    public GitHubRepositoryMetadataBuilder WithMetadata(GitHubRepositoryMetadata metadata)
+    {
+        _repositoryMetadata = metadata;
+
+        return this;
+    }
+
+    public byte[] BuildAsApiBytes() => JsonSerializer.SerializeToUtf8Bytes(_repositoryMetadata);
+}

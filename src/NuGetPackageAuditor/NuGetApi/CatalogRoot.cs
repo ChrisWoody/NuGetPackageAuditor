@@ -32,6 +32,9 @@ namespace NuGetPackageAuditor.NuGetApi
 
         [JsonPropertyName("deprecation")]
         public Deprecation Deprecation { get; set; }
+
+        [JsonPropertyName("projectUrl")]
+        public string ProjectUrl { get; set; }
     }
 
     public class Deprecation

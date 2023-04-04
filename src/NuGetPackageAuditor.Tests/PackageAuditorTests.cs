@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using NSubstitute.ExceptionExtensions;
 
 namespace NuGetPackageAuditor.Tests
 {
@@ -7,16 +8,21 @@ namespace NuGetPackageAuditor.Tests
     {
         private readonly string _packageId = Guid.NewGuid().ToString();
         private readonly string _packageVersionRange = "1.0.0";
+        private readonly string _projectUrl = "https://github.com/orgname/reponame";
 
         private readonly INuGetApiQuerier _nuGetApiQuerier;
+        private readonly IGitHubApiQuerier _gitHubApiQuerier;
         private readonly PackageAuditor _packageAuditor;
         private readonly CatalogRootBuilder _catalogRootBuilder;
+        private readonly GitHubRepositoryMetadataBuilder _gitHubRepositoryMetadataBuilder;
 
         public PackageAuditorTests()
         {
             _nuGetApiQuerier = Substitute.For<INuGetApiQuerier>();
-            _packageAuditor = new PackageAuditor(_nuGetApiQuerier);
+            _gitHubApiQuerier = Substitute.For<IGitHubApiQuerier>();
+            _packageAuditor = new PackageAuditor(_nuGetApiQuerier, _gitHubApiQuerier);
             _catalogRootBuilder = new CatalogRootBuilder();
+            _gitHubRepositoryMetadataBuilder = new GitHubRepositoryMetadataBuilder();
         }
 
         [Theory]
@@ -148,6 +154,7 @@ namespace NuGetPackageAuditor.Tests
             Assert.Equal(DeprecatedReason.PackageIsNotDeprecated, result.DeprecatedReason);
             Assert.Null(result.NuGetDeprecationMessage);
             Assert.Null(result.NuGetDeprecationReasons);
+            Assert.Null(result.SourceControlMetadata);
         }
 
         [Fact]
@@ -192,6 +199,7 @@ namespace NuGetPackageAuditor.Tests
             Assert.Equal(DeprecatedReason.PackageIsNotDeprecated, result.DeprecatedReason);
             Assert.Null(result.NuGetDeprecationMessage);
             Assert.Null(result.NuGetDeprecationReasons);
+            Assert.Null(result.SourceControlMetadata);
         }
 
         [Fact]
@@ -226,6 +234,7 @@ namespace NuGetPackageAuditor.Tests
             Assert.Equal("This package is deprecated", result.NuGetDeprecationMessage);
             Assert.Single(result.NuGetDeprecationReasons);
             Assert.Contains("Other", result.NuGetDeprecationReasons);
+            Assert.Null(result.SourceControlMetadata);
         }
 
         [Theory]
@@ -256,8 +265,189 @@ namespace NuGetPackageAuditor.Tests
             Assert.Equal(DeprecatedReason.PackageIsNotDeprecated, result.DeprecatedReason);
             Assert.Null(result.NuGetDeprecationMessage);
             Assert.Null(result.NuGetDeprecationReasons);
+            Assert.Null(result.SourceControlMetadata);
         }
 
-        // todo: add dependency related tests
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GetPackageDetailsAsync_ReturnsPackageDetails_WithSourceControlInformation(bool isArchived)
+        {
+            _catalogRootBuilder.WithPackage(new Package
+            {
+                CatalogEntry = new CatalogEntry
+                {
+                    Version = _packageVersionRange,
+                    IsListed = true,
+                    ProjectUrl = _projectUrl
+                }
+            });
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
+
+            var gitHubMetadata = new GitHubRepositoryMetadata
+            {
+                Archived = isArchived,
+                CreatedAt = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.FromHours(0)),
+                UpdatedAt = new DateTimeOffset(2023, 2, 1, 0, 0, 0, TimeSpan.FromHours(0)),
+                PushedAt = new DateTimeOffset(2023, 3, 1, 0, 0, 0, TimeSpan.FromHours(0)),
+            };
+            var gitHubRepositoryMetadata = _gitHubRepositoryMetadataBuilder.WithMetadata(gitHubMetadata).BuildAsApiBytes();
+            _gitHubApiQuerier.GetRepositoryMetadataAsync(_projectUrl).Returns(gitHubRepositoryMetadata);
+            
+            var settings = new GetPackageDetailsSettings
+            {
+                IncludeSourceControlInAuditIfExists = true
+            };
+
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange, settings);
+
+            Assert.Equal(_projectUrl, result.ProjectUrl);
+            Assert.NotNull(result.SourceControlMetadata);
+            Assert.Equal(gitHubMetadata.Archived, result.SourceControlMetadata.IsArchived);
+            Assert.Equal(gitHubMetadata.CreatedAt, result.SourceControlMetadata.CreatedTimestamp);
+            Assert.Equal(gitHubMetadata.UpdatedAt, result.SourceControlMetadata.UpdatedTimestamp);
+            Assert.Equal(gitHubMetadata.PushedAt, result.SourceControlMetadata.PushedTimestamp);
+        }
+
+        [Fact]
+        public async Task GetPackageDetailsAsync_ReturnsPackageDetails_WithoutSourceControlInformation_IfOptedOut()
+        {
+            _catalogRootBuilder.WithPackage(new Package
+            {
+                CatalogEntry = new CatalogEntry
+                {
+                    Version = _packageVersionRange,
+                    IsListed = true,
+                    ProjectUrl = _projectUrl
+                }
+            });
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
+
+            var gitHubMetadata = new GitHubRepositoryMetadata
+            {
+                Archived = false,
+                CreatedAt = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.FromHours(0)),
+                UpdatedAt = new DateTimeOffset(2023, 2, 1, 0, 0, 0, TimeSpan.FromHours(0)),
+                PushedAt = new DateTimeOffset(2023, 3, 1, 0, 0, 0, TimeSpan.FromHours(0)),
+            };
+            var gitHubRepositoryMetadata = _gitHubRepositoryMetadataBuilder.WithMetadata(gitHubMetadata).BuildAsApiBytes();
+            _gitHubApiQuerier.GetRepositoryMetadataAsync(_projectUrl).Returns(gitHubRepositoryMetadata);
+            
+            var settings = new GetPackageDetailsSettings
+            {
+                IncludeSourceControlInAuditIfExists = false
+            };
+
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange, settings);
+
+            Assert.Equal(_projectUrl, result.ProjectUrl);
+            Assert.Null(result.SourceControlMetadata);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData(" ")]
+        [InlineData("notasuportedgitrepo")]
+        public async Task GetPackageDetailsAsync_ReturnsPackageDetails_WithoutSourceControlInformation_IfProjectUrlIsMissingOrInvalid(string projectUrl)
+        {
+            _catalogRootBuilder.WithPackage(new Package
+            {
+                CatalogEntry = new CatalogEntry
+                {
+                    Version = _packageVersionRange,
+                    IsListed = true,
+                    ProjectUrl = projectUrl
+                }
+            });
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
+
+            var gitHubMetadata = new GitHubRepositoryMetadata
+            {
+                Archived = false,
+                CreatedAt = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.FromHours(0)),
+                UpdatedAt = new DateTimeOffset(2023, 2, 1, 0, 0, 0, TimeSpan.FromHours(0)),
+                PushedAt = new DateTimeOffset(2023, 3, 1, 0, 0, 0, TimeSpan.FromHours(0)),
+            };
+            var gitHubRepositoryMetadata = _gitHubRepositoryMetadataBuilder.WithMetadata(gitHubMetadata).BuildAsApiBytes();
+            _gitHubApiQuerier.GetRepositoryMetadataAsync(_projectUrl).Returns(gitHubRepositoryMetadata);
+            
+            var settings = new GetPackageDetailsSettings
+            {
+                IncludeSourceControlInAuditIfExists = true
+            };
+
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange, settings);
+
+            Assert.Equal(projectUrl, result.ProjectUrl);
+            Assert.Null(result.SourceControlMetadata);
+        }
+
+        [Fact]
+        public async Task GetPackageDetailsAsync_ReturnsPackageDetails_WithoutSourceControlInformation_WithErrorInformation_NotOptedOut()
+        {
+            _catalogRootBuilder.WithPackage(new Package
+            {
+                CatalogEntry = new CatalogEntry
+                {
+                    Version = _packageVersionRange,
+                    IsListed = true,
+                    ProjectUrl = _projectUrl
+                }
+            });
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
+
+            var exception = new Exception("some error");
+            _gitHubApiQuerier.GetRepositoryMetadataAsync(_projectUrl).ThrowsForAnyArgs(exception);
+
+            var settings = new GetPackageDetailsSettings
+            {
+                IncludeSourceControlInAuditIfExists = true,
+                IgnoreSourceControlErrors = false
+            };
+
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange, settings);
+
+            Assert.Equal(_projectUrl, result.ProjectUrl);
+            Assert.True(result.HasError);
+            Assert.Equal($"Unexpected error occurred retrieving source control metadata for '{_projectUrl}': some error", result.Error);
+            Assert.Null(result.SourceControlMetadata);
+        }
+
+        [Fact]
+        public async Task GetPackageDetailsAsync_ReturnsPackageDetails_WithoutSourceControlInformation_WithoutErrorInformation_OptedOut()
+        {
+            _catalogRootBuilder.WithPackage(new Package
+            {
+                CatalogEntry = new CatalogEntry
+                {
+                    Version = _packageVersionRange,
+                    IsListed = true,
+                    ProjectUrl = _projectUrl
+                }
+            });
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
+
+            var exception = new Exception("some error");
+            _gitHubApiQuerier.GetRepositoryMetadataAsync(_projectUrl).ThrowsForAnyArgs(exception);
+
+            var settings = new GetPackageDetailsSettings
+            {
+                IncludeSourceControlInAuditIfExists = true,
+                IgnoreSourceControlErrors = true
+            };
+
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange, settings);
+
+            Assert.Equal(_projectUrl, result.ProjectUrl);
+            Assert.False(result.HasError);
+            Assert.Null(result.Error);
+            Assert.Null(result.SourceControlMetadata);
+        }
     }
 }

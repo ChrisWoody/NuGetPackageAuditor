@@ -18,5 +18,10 @@ namespace NuGetPackageAuditor
         {
             return Task.FromResult((byte[])default);
         }
+
+        public Task ClearAsync()
+        {
+            return Task.CompletedTask;
+        }
     }
 }

@@ -28,6 +28,10 @@
         /// Indicates if the package is currently listed on NuGet.org
         /// </summary>
         public bool IsListed { get; internal set; }
+        /// <summary>
+        /// The NuGet package's project URL, usually represents the source control URL
+        /// </summary>
+        public string ProjectUrl { get; internal set; }
 
         /// <summary>
         /// Indicates if the package is considered deprecated and why
@@ -41,6 +45,11 @@
         /// The list deprecation reasons from NuGet.org if the package is deprecated there
         /// </summary>
         public string[] NuGetDeprecationReasons { get; internal set; }
+
+        /// <summary>
+        /// The <see cref="SourceControlMetadata"/> instance that is populated if the audit is configured to include source control metadata and if the NuGet package has a 'project url' configured
+        /// </summary>
+        public SourceControlMetadata SourceControlMetadata { get; internal set; }
 
         internal static PackageDetails BuildError(string errorMessage)
         {

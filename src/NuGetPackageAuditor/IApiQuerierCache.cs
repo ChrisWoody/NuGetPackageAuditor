@@ -28,5 +28,11 @@ namespace NuGetPackageAuditor
         /// <param name="key">The NuGet package's id</param>
         /// <returns>The cached byte array</returns>
         Task<byte[]> GetValueOrDefaultAsync(string key);
+
+        /// <summary>
+        /// Clears the entire cache
+        /// </summary>
+        /// <returns></returns>
+        Task ClearAsync();
     }
 }

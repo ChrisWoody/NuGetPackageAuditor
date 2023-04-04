@@ -5,10 +5,10 @@
 
 //var packageAuditor = new PackageAuditor();
 //var packageAuditor = new PackageAuditor(NuGetApiQuerierFactory.CreateWithMemoryCache());
-var packageAuditor = new PackageAuditor(NuGetApiQuerierFactory.CreateWithFileCache(@"PATHTOCACHE"));
-
-var packageId = "WindowsAzure.Storage";
-var pacakgeVersionRange = "9.3.3";
-
-var result = await packageAuditor.GetPackageDetailsAsync(packageId, pacakgeVersionRange);
+var gitHubApiQuerierSettings = new GitHubApiQuerierSettings { ApiPersonalAccessToken = "APIPAT" };
+var getPackageDetailsSettings = new GetPackageDetailsSettings { IncludeSourceControlInAuditIfExists = true };
+var packageAuditor = new PackageAuditor(NuGetApiQuerierFactory.CreateWithFileCache(@"PATHTOCACHE"), GitHubApiQuerierFactory.CreateWithFileCache(@"PATHTOCACHE", gitHubApiQuerierSettings));
+var packageId = "newtonsoft.json";
+var pacakgeVersionRange = "12.0.1";
+var result = await packageAuditor.GetPackageDetailsAsync(packageId, pacakgeVersionRange, getPackageDetailsSettings);
 result.Dump();

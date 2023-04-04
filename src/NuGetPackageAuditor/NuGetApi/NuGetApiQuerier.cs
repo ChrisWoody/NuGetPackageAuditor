@@ -1,7 +1,4 @@
 ﻿using System;
-using System.IO;
-using System.IO.Compression;
-using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -11,15 +8,15 @@ namespace NuGetPackageAuditor.NuGetApi
     {
         private const string RegistrationBaseUrl = "https://api.nuget.org/v3/registration5-gz-semver2/";
 
-        private readonly HttpClient _httpClient;
         private readonly IApiQuerierCache _apiQuerierCache;
+        private readonly HttpClient _httpClient;
 
         public NuGetApiQuerier(IApiQuerierCache apiQuerierCache)
         {
+            _apiQuerierCache = apiQuerierCache;
             _httpClient = new HttpClient();
             _httpClient.BaseAddress = new Uri(RegistrationBaseUrl);
             _httpClient.Timeout = TimeSpan.FromSeconds(30);
-            _apiQuerierCache = apiQuerierCache;
         }
 
         public async Task<byte[]> GetRawCatalogRootAsync(string packageId)
@@ -34,7 +31,7 @@ namespace NuGetPackageAuditor.NuGetApi
             var response = await _httpClient.GetAsync($"{packageId.ToLowerInvariant()}/index.json");
             response.EnsureSuccessStatusCode();
 
-            var decompressedBytes = await DecompressContent(response.Content);
+            var decompressedBytes = await response.Content.DecompressContent();
             await _apiQuerierCache.SaveAsync(packageId + ".json", decompressedBytes);
             return decompressedBytes;
         }
@@ -58,29 +55,9 @@ namespace NuGetPackageAuditor.NuGetApi
             var response = await _httpClient.GetAsync(cleanCatalogPageId);
             response.EnsureSuccessStatusCode();
 
-            var decompressedBytes = await DecompressContent(response.Content);
+            var decompressedBytes = await response.Content.DecompressContent();
             await _apiQuerierCache.SaveAsync(cacheName, decompressedBytes);
             return decompressedBytes;
-        }
-
-        private static async Task<byte[]> DecompressContent(HttpContent content)
-        {
-            var contentBytes = await content.ReadAsByteArrayAsync();
-
-            content.Headers.TryGetValues("content-encoding", out var contentEncoding);
-            if (contentEncoding != null && contentEncoding.Contains("gzip"))
-            {
-                using (var ms = new MemoryStream(contentBytes))
-                using (var gzipStream = new GZipStream(ms, CompressionMode.Decompress))
-                using (var outputMs = new MemoryStream())
-                {
-                    await gzipStream.CopyToAsync(outputMs);
-                    return outputMs.ToArray();
-                }
-
-            }
-
-            return contentBytes;
         }
     }
 }

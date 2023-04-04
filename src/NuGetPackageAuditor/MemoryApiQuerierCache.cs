@@ -23,5 +23,12 @@ namespace NuGetPackageAuditor
         {
             return Task.FromResult(Cache.TryGetValue(key, out var value) ? value : default);
         }
+
+        public Task ClearAsync()
+        {
+            Cache.Clear();
+
+            return Task.CompletedTask;
+        }
     }
 }
