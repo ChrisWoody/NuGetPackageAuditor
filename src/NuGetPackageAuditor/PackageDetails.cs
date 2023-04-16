@@ -37,6 +37,11 @@
         /// Indicates if the package is considered deprecated and why
         /// </summary>
         public DeprecatedReason DeprecatedReason { get; internal set; }
+
+        /// <summary>
+        /// Indicates if the package has depreciation details or not
+        /// </summary>
+        public bool NuGetDeprecationExists { get; internal set; }
         /// <summary>
         /// The deprecation message from NuGet.org if the package is deprecated there
         /// </summary>

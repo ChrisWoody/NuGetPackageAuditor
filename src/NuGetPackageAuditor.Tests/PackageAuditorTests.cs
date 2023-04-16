@@ -151,7 +151,8 @@ namespace NuGetPackageAuditor.Tests
             Assert.Equal(_packageVersionRange, result.VersionRange);
             Assert.Equal(_packageVersionRange, result.Version);
             Assert.True(result.IsListed);
-            Assert.Equal(DeprecatedReason.PackageIsNotDeprecated, result.DeprecatedReason);
+            Assert.Equal(DeprecatedReason.NotDeprecated, result.DeprecatedReason);
+            Assert.False(result.NuGetDeprecationExists);
             Assert.Null(result.NuGetDeprecationMessage);
             Assert.Null(result.NuGetDeprecationReasons);
             Assert.Null(result.SourceControlMetadata);
@@ -196,7 +197,8 @@ namespace NuGetPackageAuditor.Tests
             Assert.Equal(_packageVersionRange, result.VersionRange);
             Assert.Equal(_packageVersionRange, result.Version);
             Assert.True(result.IsListed);
-            Assert.Equal(DeprecatedReason.PackageIsNotDeprecated, result.DeprecatedReason);
+            Assert.Equal(DeprecatedReason.NotDeprecated, result.DeprecatedReason);
+            Assert.False(result.NuGetDeprecationExists);
             Assert.Null(result.NuGetDeprecationMessage);
             Assert.Null(result.NuGetDeprecationReasons);
             Assert.Null(result.SourceControlMetadata);
@@ -230,7 +232,8 @@ namespace NuGetPackageAuditor.Tests
             Assert.Equal(_packageVersionRange, result.VersionRange);
             Assert.Equal(_packageVersionRange, result.Version);
             Assert.True(result.IsListed);
-            Assert.Equal(DeprecatedReason.PackageIsMarkedAsDeprecated, result.DeprecatedReason);
+            Assert.Equal(DeprecatedReason.DeprecatedOnNuGet, result.DeprecatedReason);
+            Assert.True(result.NuGetDeprecationExists);
             Assert.Equal("This package is deprecated", result.NuGetDeprecationMessage);
             Assert.Single(result.NuGetDeprecationReasons);
             Assert.Contains("Other", result.NuGetDeprecationReasons);
@@ -262,7 +265,8 @@ namespace NuGetPackageAuditor.Tests
             Assert.Equal(_packageVersionRange, result.VersionRange);
             Assert.Equal(_packageVersionRange, result.Version);
             Assert.Equal(isListed, result.IsListed);
-            Assert.Equal(DeprecatedReason.PackageIsNotDeprecated, result.DeprecatedReason);
+            Assert.Equal(DeprecatedReason.NotDeprecated, result.DeprecatedReason);
+            Assert.False(result.NuGetDeprecationExists);
             Assert.Null(result.NuGetDeprecationMessage);
             Assert.Null(result.NuGetDeprecationReasons);
             Assert.Null(result.SourceControlMetadata);
@@ -288,9 +292,9 @@ namespace NuGetPackageAuditor.Tests
             var gitHubMetadata = new GitHubRepositoryMetadata
             {
                 Archived = isArchived,
-                CreatedAt = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.FromHours(0)),
-                UpdatedAt = new DateTimeOffset(2023, 2, 1, 0, 0, 0, TimeSpan.FromHours(0)),
-                PushedAt = new DateTimeOffset(2023, 3, 1, 0, 0, 0, TimeSpan.FromHours(0)),
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                PushedAt = DateTimeOffset.UtcNow,
             };
             var gitHubRepositoryMetadata = _gitHubRepositoryMetadataBuilder.WithMetadata(gitHubMetadata).BuildAsApiBytes();
             _gitHubApiQuerier.GetRepositoryMetadataAsync(_projectUrl).Returns(gitHubRepositoryMetadata);
@@ -328,9 +332,9 @@ namespace NuGetPackageAuditor.Tests
             var gitHubMetadata = new GitHubRepositoryMetadata
             {
                 Archived = false,
-                CreatedAt = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.FromHours(0)),
-                UpdatedAt = new DateTimeOffset(2023, 2, 1, 0, 0, 0, TimeSpan.FromHours(0)),
-                PushedAt = new DateTimeOffset(2023, 3, 1, 0, 0, 0, TimeSpan.FromHours(0)),
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                PushedAt = DateTimeOffset.UtcNow,
             };
             var gitHubRepositoryMetadata = _gitHubRepositoryMetadataBuilder.WithMetadata(gitHubMetadata).BuildAsApiBytes();
             _gitHubApiQuerier.GetRepositoryMetadataAsync(_projectUrl).Returns(gitHubRepositoryMetadata);
@@ -368,9 +372,9 @@ namespace NuGetPackageAuditor.Tests
             var gitHubMetadata = new GitHubRepositoryMetadata
             {
                 Archived = false,
-                CreatedAt = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.FromHours(0)),
-                UpdatedAt = new DateTimeOffset(2023, 2, 1, 0, 0, 0, TimeSpan.FromHours(0)),
-                PushedAt = new DateTimeOffset(2023, 3, 1, 0, 0, 0, TimeSpan.FromHours(0)),
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                PushedAt = DateTimeOffset.UtcNow,
             };
             var gitHubRepositoryMetadata = _gitHubRepositoryMetadataBuilder.WithMetadata(gitHubMetadata).BuildAsApiBytes();
             _gitHubApiQuerier.GetRepositoryMetadataAsync(_projectUrl).Returns(gitHubRepositoryMetadata);
@@ -448,6 +452,76 @@ namespace NuGetPackageAuditor.Tests
             Assert.False(result.HasError);
             Assert.Null(result.Error);
             Assert.Null(result.SourceControlMetadata);
+        }
+
+        [Fact]
+        public async Task GetPackageDetailsAsync_ReturnsPackageDetails_WithSourceControlArchived()
+        {
+            _catalogRootBuilder.WithPackage(new Package
+            {
+                CatalogEntry = new CatalogEntry
+                {
+                    Version = _packageVersionRange,
+                    IsListed = true,
+                    ProjectUrl = _projectUrl
+                }
+            });
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
+
+            var gitHubMetadata = new GitHubRepositoryMetadata
+            {
+                Archived = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                PushedAt = DateTimeOffset.UtcNow,
+            };
+            var gitHubRepositoryMetadata = _gitHubRepositoryMetadataBuilder.WithMetadata(gitHubMetadata).BuildAsApiBytes();
+            _gitHubApiQuerier.GetRepositoryMetadataAsync(_projectUrl).Returns(gitHubRepositoryMetadata);
+
+            var settings = new GetPackageDetailsSettings
+            {
+                IncludeSourceControlInAuditIfExists = true
+            };
+
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange, settings);
+
+            Assert.Equal(DeprecatedReason.SourceControlIsArchived, result.DeprecatedReason);
+        }
+
+        [Fact]
+        public async Task GetPackageDetailsAsync_ReturnsPackageDetails_WithSourceControlBeingStagnant()
+        {
+            _catalogRootBuilder.WithPackage(new Package
+            {
+                CatalogEntry = new CatalogEntry
+                {
+                    Version = _packageVersionRange,
+                    IsListed = true,
+                    ProjectUrl = _projectUrl
+                }
+            });
+            var catalogRoot = _catalogRootBuilder.BuildAsApiBytes();
+            _nuGetApiQuerier.GetRawCatalogRootAsync(_packageId).Returns(catalogRoot);
+
+            var gitHubMetadata = new GitHubRepositoryMetadata
+            {
+                Archived = false,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                PushedAt = DateTimeOffset.UtcNow.AddMonths(-7),
+            };
+            var gitHubRepositoryMetadata = _gitHubRepositoryMetadataBuilder.WithMetadata(gitHubMetadata).BuildAsApiBytes();
+            _gitHubApiQuerier.GetRepositoryMetadataAsync(_projectUrl).Returns(gitHubRepositoryMetadata);
+
+            var settings = new GetPackageDetailsSettings
+            {
+                IncludeSourceControlInAuditIfExists = true
+            };
+
+            var result = await _packageAuditor.GetPackageDetailsAsync(_packageId, _packageVersionRange, settings);
+
+            Assert.Equal(DeprecatedReason.SourceControlIsStagnant, result.DeprecatedReason);
         }
     }
 }

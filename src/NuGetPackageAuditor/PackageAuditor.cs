@@ -75,14 +75,14 @@ namespace NuGetPackageAuditor
                 Version = catalogEntry.Version,
                 IsListed = catalogEntry.IsListed,
                 ProjectUrl = catalogEntry.ProjectUrl,
-                DeprecatedReason = catalogEntry.Deprecation != null
-                    ? DeprecatedReason.PackageIsMarkedAsDeprecated
-                    : DeprecatedReason.PackageIsNotDeprecated,
+                NuGetDeprecationExists = catalogEntry.Deprecation != null,
                 NuGetDeprecationMessage = catalogEntry.Deprecation?.Message,
                 NuGetDeprecationReasons = catalogEntry.Deprecation?.Reasons,
             };
 
             await PopulateWithSourceControlMetadata(packageDetails, getPackageDetailsSettings, catalogEntry.ProjectUrl);
+
+            DeprecationEvaluator.EvaluateAndSetDeprecation(packageDetails);
 
             return packageDetails;
         }
