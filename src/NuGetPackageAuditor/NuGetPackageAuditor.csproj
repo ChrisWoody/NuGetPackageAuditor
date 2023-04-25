@@ -1,25 +1,42 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <AssemblyName>NuGetPackageAuditor</AssemblyName>
-    <RootNamespace>NuGetPackageAuditor</RootNamespace>
-    <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <IncludeSymbols>True</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageRequireLicenseAcceptance>False</PackageRequireLicenseAcceptance>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<PackageVersion>0.1.0</PackageVersion>
+		<AssemblyName>NuGetPackageAuditor</AssemblyName>
+		<RootNamespace>NuGetPackageAuditor</RootNamespace>
+		<IncludeSymbols>True</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+		<EnablePackageValidation>true</EnablePackageValidation>
+		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+		<Authors>Chris Wood</Authors>
+		<Description>A tool primarily to check if NuGet package is deprecated and out of support. Other checks may be added going forward.</Description>
+		<ProjectUrl>https://github.com/ChrisWoody/NuGetPackageAuditor</ProjectUrl>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<PackageTags>nuget, audit, deprecation, deprecate, library</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<Deterministic>true</Deterministic>
+		<ContinuousIntegrationBuild>True</ContinuousIntegrationBuild>
+		<Title>NuGet Pacakge Auditor</Title>
+		<Copyright>Copyright (c) Chris Wood 2023</Copyright>
+		<PackageProjectUrl>https://github.com/ChrisWoody/NuGetPackageAuditor</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/ChrisWoody/NuGetPackageAuditor</RepositoryUrl>
+		<NeutralLanguage>en-AU</NeutralLanguage>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <None Include="..\..\LICENSE">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
+		<PackageReference Include="DotNet.ReproducibleBuilds" Version="1.1.1">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="NuGet.Versioning" Version="6.5.0" />
+		<PackageReference Include="System.Text.Json" Version="6.0.7" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="NuGet.Versioning" Version="6.5.0" />
-    <PackageReference Include="System.Text.Json" Version="6.0.7" />
-  </ItemGroup>
-
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="" />
+	</ItemGroup>
 </Project>
