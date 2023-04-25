@@ -7,17 +7,28 @@ using NuGetPackageAuditor.NuGetApi;
 
 namespace NuGetPackageAuditor
 {
+    /// <summary>
+    /// The main entry point for auditing NuGet packages.
+    /// </summary>
     public class PackageAuditor
     {
         private readonly ICatalogProvider _catalogProvider;
         private readonly ISourceControlProvider _sourceControlProvider;
 
+        /// <summary>
+        /// Creates a default instance of <see cref="PackageAuditor"/> with no caching on the APIs.
+        /// </summary>
         public PackageAuditor()
         {
             _catalogProvider = new CatalogProvider(NuGetApiQuerierFactory.Create());
             _sourceControlProvider = new SourceControlProvider(GitHubApiQuerierFactory.Create());
         }
 
+        /// <summary>
+        /// Allows you to specify your own instances of <see cref="INuGetApiQuerier"/> and <see cref="IGitHubApiQuerier"/> for <see cref="PackageAuditor"/> to use.
+        /// </summary>
+        /// <param name="nuGetApiQuerier"></param>
+        /// <param name="gitHubApiQuerier"></param>
         public PackageAuditor(INuGetApiQuerier nuGetApiQuerier, IGitHubApiQuerier gitHubApiQuerier)
         {
             _catalogProvider = new CatalogProvider(nuGetApiQuerier);

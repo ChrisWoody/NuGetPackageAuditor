@@ -12,6 +12,14 @@ namespace NuGetPackageAuditor
         {
             var contentBytes = await content.ReadAsByteArrayAsync();
 
+            // If running in the browser (i.e. Blazor), appears the content is decompressed before it gets to this point
+            // even though the 'content-encoding' header is still set. Detect if the length of the content is different
+            // to what was specified in the header, if it is assume that it is already decompressed.
+            content.Headers.TryGetValues("content-length", out var contentLength);
+            int.TryParse(contentLength?.FirstOrDefault(), out var length);
+            if (length != contentBytes.Length)
+                return contentBytes;
+
             content.Headers.TryGetValues("content-encoding", out var contentEncoding);
             if (contentEncoding != null && contentEncoding.Contains("gzip"))
             {
@@ -22,7 +30,6 @@ namespace NuGetPackageAuditor
                     await gzipStream.CopyToAsync(outputMs);
                     return outputMs.ToArray();
                 }
-
             }
 
             return contentBytes;

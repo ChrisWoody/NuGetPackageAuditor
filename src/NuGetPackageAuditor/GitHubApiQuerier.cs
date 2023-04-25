@@ -11,13 +11,11 @@ namespace NuGetPackageAuditor
         private const string GitHubApiUrl = "https://api.github.com/repos/";
 
         private readonly IApiQuerierCache _apiQuerierCache;
-        private readonly GitHubApiQuerierSettings _gitHubApiQuerierSettings;
         private readonly HttpClient _httpClient;
 
         public GitHubApiQuerier(IApiQuerierCache apiQuerierCache, GitHubApiQuerierSettings gitHubApiQuerierSettings)
         {
             _apiQuerierCache = apiQuerierCache;
-            _gitHubApiQuerierSettings = gitHubApiQuerierSettings;
             _httpClient = new HttpClient();
             _httpClient.Timeout = TimeSpan.FromSeconds(30);
             _httpClient.BaseAddress = new Uri(GitHubApiUrl);

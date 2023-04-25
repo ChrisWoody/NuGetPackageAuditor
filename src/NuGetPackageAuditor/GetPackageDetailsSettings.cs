@@ -1,5 +1,8 @@
 ﻿namespace NuGetPackageAuditor
 {
+    /// <summary>
+    /// Allows you to configure how <see cref="PackageAuditor"/> audits packages.
+    /// </summary>
     public class GetPackageDetailsSettings
     {
         /// <summary>

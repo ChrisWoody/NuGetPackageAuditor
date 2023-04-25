@@ -1,5 +1,8 @@
 ﻿namespace NuGetPackageAuditor
 {
+    /// <summary>
+    /// Contains the findings from auditing a NuGet package.
+    /// </summary>
     public class PackageDetails
     {
         /// <summary>

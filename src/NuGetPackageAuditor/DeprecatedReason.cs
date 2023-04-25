@@ -1,5 +1,8 @@
 ﻿namespace NuGetPackageAuditor
 {
+    /// <summary>
+    /// Defines the possible ways a NuGet package could be considered deprecated, and therefore likely out of support.
+    /// </summary>
     public enum DeprecatedReason
     {
         /// <summary>
