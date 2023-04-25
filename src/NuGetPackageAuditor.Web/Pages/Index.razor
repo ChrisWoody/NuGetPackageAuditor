@@ -1,0 +1,213 @@
+﻿@page "/"
+
+<PageTitle>NuGet Package Auditor</PageTitle>
+
+<div style="text-align: center">
+    <h1>NuGet Package Auditor</h1>
+    <p>Specify a NuGet package and its version to learn more about it.</p>
+    
+    <div style="align-items: center; max-width: 500px; display: inline-block">
+        <div class="input-group input-group-sm" style="margin-bottom: 0.25rem">
+            <label class="input-group-text form-select-sm" for="packageid">Package Id</label>
+            <InputText class="form-control form-select-sm" id="packageid" @bind-Value="PackageId" placeholder="Package Id" aria-label="Package Id" aria-describedby="packageid" />
+        </div>
+        <div class="input-group input-group-sm" style="margin-bottom: 0.25rem">
+            <label class="input-group-text form-select-sm" for="packageversion">Package Version</label>
+            <InputText class="form-control form-select-sm" id="packageversion" @bind-Value="PackageVersion" placeholder="Package Version" aria-label="Package Version" aria-describedby="packageversion" />
+        </div>
+        <div class="input-group input-group-sm" style="margin-bottom: 0.25rem">
+            <label class="input-group-text form-select-sm" for="includesourcecontrol">Include source control in audit?</label>
+            <InputCheckbox id="includesourcecontrol" @bind-Value="_includeSourceControl"  style="width: 30px" />
+        </div>
+    </div>
+    
+    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <p class="text-warning">@_errorMessage</p>
+    }
+    else
+    {    
+        <br/>
+    }
+    
+    <div class="row" style="display: inline-flex">
+        <div class="col">
+            @if (_auditing)
+            {
+                <button class="btn btn-primary" disabled="disabled">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span class="sr-only">Auditing package...</span>
+                </button>
+            }
+            else
+            {
+                <button type="submit" class="btn btn-primary" @onclick="Audit">Audit package</button>
+            }
+        </div>
+        <div class="col">
+            <div class="dropdown">
+                <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" id="examplepackages" data-bs-toggle="dropdown" aria-expanded="false">
+                    Example packages
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="examplepackages">
+                    <li><a class="dropdown-item btn" @onclick="@(_ => Sample("Newtonsoft.Json", "13.0.3"))">Newtonsoft.Json@@13.0.3</a></li>
+                    <li><a class="dropdown-item btn" @onclick="@(_ => Sample("WindowsAzure.Storage", "9.3.3"))">WindowsAzure.Storage@@9.3.3</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    @if (_packageDetails != null)
+    {
+        <div>
+            <table class="table table-borderless table-sm" style="width: auto; display: inline-block; border: 1px solid black; margin-top: 15px; text-align: left">
+                <tbody>
+                <tr>
+                    <td style="font-weight: bold; border-bottom: 1px solid black; text-align: center" colspan="2">NuGet.org information</td>
+                </tr>
+                @if (_packageDetails.HasError)
+                {
+                    <tr class="table-danger">
+                        <td>Error occurred:</td>
+                        <td>@_packageDetails.Error</td>
+                    </tr>
+                }
+                <tr class="table-success">
+                    <td style="width: 300px">Package Id</td>
+                    <td>
+                        <a href="https://www.nuget.org/packages/@(_packageDetails.Id)" rel="noreferrer noopener" target="_blank">@_packageDetails.Id</a>
+                    </td>
+                </tr>
+                <tr class="table-success">
+                    <td style="width: 300px">Package Version</td>
+                    <td><a href="https://www.nuget.org/packages/@(_packageDetails.Id)/@(_packageDetails.Version)" rel="noreferrer noopener" target="_blank">@_packageDetails.Version</a></td>
+                </tr>
+                <tr class="table-success">
+                    <td style="width: 300px">Package Version Range</td>
+                    <td>@_packageDetails.VersionRange</td>
+                </tr>
+
+                <tr class="@(_packageDetails.IsListed ? "table-success" : "table-warning")">
+                    <td style="width: 300px">Is listed on NuGet.org?</td>
+                    <td>@(_packageDetails.IsListed ? "Yes" : "No")</td>
+                </tr>
+
+                <tr class="@(string.IsNullOrWhiteSpace(_packageDetails.ProjectUrl) ? "table-warning" : "table-success")">
+                    <td style="width: 300px">Project URL</td>
+                    @if (string.IsNullOrWhiteSpace(_packageDetails.ProjectUrl))
+                    {
+                        <td>&lt;missing&gt;</td>
+                    }
+                    else if (_packageDetails.ProjectUrl.StartsWith("http://") || _packageDetails.ProjectUrl.StartsWith("https://"))
+                    {
+                        <td><a href="@_packageDetails.ProjectUrl" rel="noreferrer noopener" target="_blank">@_packageDetails.ProjectUrl</a></td>
+                    }
+                    else
+                    {
+                        <td>@_packageDetails.ProjectUrl</td>
+                    }
+                </tr>
+                <tr class="@(_packageDetails.DeprecatedReason == DeprecatedReason.NotDeprecated ? "table-success" : "table-danger")">
+                    <td style="width: 300px">Package deprecation</td>
+                    <td>@_packageDetails.DeprecatedReason</td>
+                </tr>
+
+                <tr class="@(_packageDetails.NuGetDeprecationExists ? "table-danger" : "table-success")">
+                    <td style="width: 300px">Packaged deprecated on NuGet.org?</td>
+                    <td>@(_packageDetails.NuGetDeprecationExists ? "Yes" : "No")</td>
+                </tr>
+                <tr class="@(string.IsNullOrWhiteSpace(_packageDetails.NuGetDeprecationMessage) ? "table-success" : "table-danger")">
+                    <td style="width: 300px">NuGet.org deprecation message</td>
+                    <td style="max-width: 400px">@(string.IsNullOrWhiteSpace(_packageDetails.NuGetDeprecationMessage) ? "<none>" : _packageDetails.NuGetDeprecationMessage)</td>
+                </tr>
+                <tr class="@(_packageDetails.NuGetDeprecationReasons?.Any() == true ? "table-danger" : "table-success")">
+                    <td style="width: 300px">NuGet.org deprecation reasons</td>
+                    <td>@(_packageDetails.NuGetDeprecationReasons?.Any() == true ? string.Join(",", _packageDetails.NuGetDeprecationReasons) : "<none>")</td>
+                </tr>
+                
+                <tr>
+                    <td style="font-weight: bold; border-bottom: 1px solid black; text-align: center" colspan="2">Source control information</td>
+                </tr>
+                @if (_packageDetails.SourceControlMetadata != null)
+                {
+                    <tr class="@(_packageDetails.SourceControlMetadata.IsArchived ? "table-danger" : "table-success")">
+                        <td style="width: 300px">Is archived?</td>
+                        <td>@(_packageDetails.SourceControlMetadata.IsArchived ? "Yes" : "No")</td>
+                    </tr>
+                    <tr class="table-success">
+                        <td style="width: 300px">Created</td>
+                        <td>@_packageDetails.SourceControlMetadata.CreatedTimestamp.ToString("O")</td>
+                    </tr>
+                    <tr class="@(_packageDetails.SourceControlMetadata.UpdatedTimestamp < DateTimeOffset.UtcNow.AddMonths(-6) ? "table-warning" : "table-success")">
+                        <td style="width: 300px">Updated</td>
+                        <td>@_packageDetails.SourceControlMetadata.UpdatedTimestamp.ToString("O")</td>
+                    </tr>
+                    <tr class="@(_packageDetails.SourceControlMetadata.PushedTimestamp < DateTimeOffset.UtcNow.AddMonths(-6) ? "table-warning" : "table-success")">
+                        <td style="width: 300px">Pushed</td>
+                        <td>@_packageDetails.SourceControlMetadata.PushedTimestamp.ToString("O")</td>
+                    </tr>
+                }
+                else
+                {
+                    <tr class="table-warning">
+                        <td colspan="2">Source control not found or not included</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code
+{
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? PackageId { get; set; }
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? PackageVersion { get; set; }
+
+    private bool _includeSourceControl;
+
+    private string? _errorMessage;
+    private bool _auditing;
+
+    private PackageAuditor _packageAuditor = new();
+    private PackageDetails? _packageDetails;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(PackageId) && !string.IsNullOrWhiteSpace(PackageVersion))
+        {
+            await Audit();
+        }
+    }
+
+    private async Task Audit()
+    {
+        if (string.IsNullOrWhiteSpace(PackageId) || string.IsNullOrWhiteSpace(PackageVersion))
+        {
+            _errorMessage = "You need to specify both the NuGet Package's Id and Version";
+            return;
+        }
+
+        _auditing = true;
+
+        _packageDetails = await _packageAuditor.GetPackageDetailsAsync(PackageId, PackageVersion, new GetPackageDetailsSettings
+        {
+            IgnoreSourceControlErrors = false,
+            IncludeSourceControlInAuditIfExists = _includeSourceControl
+        });
+
+        _auditing = false;
+    }
+
+    private async Task Sample(string packageId, string packageVersion)
+    {
+        PackageId = packageId;
+        PackageVersion = packageVersion;
+
+        await Audit();
+    }
+}
